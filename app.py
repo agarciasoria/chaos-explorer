@@ -156,8 +156,6 @@ with tabs[1]:
             fig.update_layout(title=f"Lorenz Attractor (step {i})", height=560, margin=dict(l=0,r=0,b=0,t=30))
             fig_placeholder.plotly_chart(fig, use_container_width=True)
 
-
-
     # Metrics (mirroring your style)
     m1, m2, m3 = st.columns(3)
     with m1:
@@ -169,12 +167,15 @@ with tabs[1]:
 
     # Downloads
     if enable_downloads:
-        # CSV of trajectory
-        csv_data = "t,x,y,z\n" + "\n".join(f"{ti},{xi},{yi},{zi}" for ti, xi, yi, zi in zip(t, x, y, z))
+    for j, label in enumerate(["trajectory1", "trajectory2"][:len(traj_data)]):
+        csv_lines = ["t,x,y,z"]
+        for i in range(len(traj_data[j][0])):
+            csv_lines.append(f"{i*dt},{traj_data[j][0][i]},{traj_data[j][1][i]},{traj_data[j][2][i]}")
+        csv_data = "\n".join(csv_lines)
         st.download_button(
-            label="📥 Download trajectory (CSV)",
+            label=f"📥 Download {label} (CSV)",
             data=csv_data,
-            file_name="lorenz_trajectory.csv",
+            file_name=f"{label}.csv",
             mime="text/csv"
         )
 
