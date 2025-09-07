@@ -58,32 +58,37 @@ with tabs[1]:
     st.header("Lorenz Attractor")
     st.write("Explore chaos through the 3D Lorenz system and its 2D projections")
 
-    # Controls in columns (style consistent with your Quantum Visualizer)
-    col1, col2, col3 = st.columns([1, 1, 1])
+    # ------------------ Controls ------------------
+    col1, col2, col3 = st.columns([1,1,1])
     with col1:
-        sigma = st.slider("σ (Prandtl number)", min_value=0.0, max_value=20.0, value=10.0, step=0.1)
-        x0 = st.number_input("x₀", value=0.0, step=0.1)
+        sigma = st.slider("σ (Prandtl number)", 0.0, 20.0, 10.0, 0.1)
+        x0 = st.number_input("x₀", 0.0, step=0.1)
     with col2:
-        rho = st.slider("ρ (Rayleigh number)", min_value=0.0, max_value=60.0, value=28.0, step=0.5)
-        y0 = st.number_input("y₀", value=1.0, step=0.1)
+        rho = st.slider("ρ (Rayleigh number)", 0.0, 60.0, 28.0, 0.5)
+        y0 = st.number_input("y₀", 1.0, step=0.1)
     with col3:
-        beta = st.slider("β", min_value=0.0, max_value=10.0, value=float(8/3), step=0.1)
-        z0 = st.number_input("z₀", value=1.05, step=0.1)
+        beta = st.slider("β", 0.0, 10.0, float(8/3), 0.1)
+        z0 = st.number_input("z₀", 1.05, step=0.1)
 
     colA, colB = st.columns(2)
     with colA:
-        t_max = st.slider("Simulation Time (t_max)", min_value=5.0, max_value=120.0, value=40.0, step=1.0)
+        t_max = st.slider("Simulation Time (t_max)", 5.0, 120.0, 40.0, 1.0)
     with colB:
-        dt = st.slider("Time Step (Δt)", min_value=0.001, max_value=0.05, value=0.01, step=0.001)
+        dt = st.slider("Time Step (Δt)", 0.001, 0.05, 0.01, 0.001)
 
-    # Options
+    # ------------------ Options ------------------
     colO1, colO2 = st.columns(2)
     with colO1:
-        show_equations = st.checkbox("Show equations", value=True)
+        show_equations = st.checkbox("Show equations", True)
     with colO2:
-        enable_downloads = st.checkbox("Enable downloads", value=True)
+        enable_downloads = st.checkbox("Enable downloads", True)
 
-    # Equations (same vibe as your particle-in-a-box tab)
+    # Second trajectory
+    show_second = st.checkbox("Compare two nearby trajectories", False)
+    if show_second:
+        perturb = st.slider("Initial condition perturbation δ", 1e-5, 1.0, 0.01, 1e-5)
+
+    # ------------------ Equations ------------------
     if show_equations:
         st.markdown("### 📐 Mathematical Description")
         c1, c2 = st.columns(2)
@@ -92,53 +97,66 @@ with tabs[1]:
             st.latex(r"\dot{y} = x (\rho - z) - y")
             st.latex(r"\dot{z} = xy - \beta z")
         with c2:
-            st.markdown(
-                """
-                - **σ** (*Prandtl*): ratio of momentum to thermal diffusivity  
-                - **ρ** (*Rayleigh*): thermal forcing/instability parameter  
-                - **β**: geometric factor
+            st.markdown("""
+            - **σ**: Prandtl number  
+            - **ρ**: Rayleigh number  
+            - **β**: geometric factor
+            - **Chaos** arises for certain parameters: nearby trajectories diverge exponentially on a strange attractor
+            """)
 
-                **Deterministic chaos** arises for certain parameter ranges: nearby trajectories
-                separate exponentially fast while remaining bounded on a **strange attractor**.
-                """
-            )
+    # ------------------ Real-time Animation ------------------
+    view = st.radio("Select View", ["3D Attractor", "2D Projection (x–y)", "2D Projection (x–z)", "2D Projection (y–z)"], horizontal=True)
+    play_button = st.button("▶ Play Animation")
 
-    # Integrate ODE
-    t, x, y, z = integrate_lorenz(x0, y0, z0, sigma, rho, beta, t_max, dt)
+    if play_button:
+        # Initialize trajectories
+        trajs = [(x0, y0, z0)]
+        if show_second:
+            trajs.append((x0+perturb, y0+perturb, z0+perturb))
 
-    # View selector
-    view = st.radio(
-        "Select View",
-        ["3D Attractor", "2D Projection (x–y)", "2D Projection (x–z)", "2D Projection (y–z)"],
-        horizontal=True
-    )
+        fig_placeholder = st.empty()
+        num_points = int(t_max/dt)
+        traj_data = [[ [xi], [yi], [zi] ] for xi, yi, zi in trajs]
 
-    # Plot
-    if view == "3D Attractor":
-        fig = go.Figure(
-            data=[go.Scatter3d(
-                x=x, y=y, z=z,
-                mode="lines",
-                line=dict(color=z, colorscale="Viridis", width=2)
-            )]
-        )
-        fig.update_layout(
-            scene=dict(xaxis_title="X", yaxis_title="Y", zaxis_title="Z"),
-            margin=dict(l=0, r=0, b=0, t=30),
-            title=f"Lorenz Attractor (σ={sigma}, ρ={rho}, β={beta:.3f})",
-            height=560
-        )
-    elif view == "2D Projection (x–y)":
-        fig = go.Figure(data=[go.Scatter(x=x, y=y, mode="lines", name="x–y")])
-        fig.update_layout(xaxis_title="X", yaxis_title="Y", title="2D Projection: X vs Y", height=560)
-    elif view == "2D Projection (x–z)":
-        fig = go.Figure(data=[go.Scatter(x=x, y=z, mode="lines", name="x–z")])
-        fig.update_layout(xaxis_title="X", yaxis_title="Z", title="2D Projection: X vs Z", height=560)
-    else:
-        fig = go.Figure(data=[go.Scatter(x=y, y=z, mode="lines", name="y–z")])
-        fig.update_layout(xaxis_title="Y", yaxis_title="Z", title="2D Projection: Y vs Z", height=560)
+        # Integrate and animate step by step
+        x_curr = [x0 for _ in trajs]
+        y_curr = [y0 for _ in trajs]
+        z_curr = [z0 for _ in trajs]
 
-    st.plotly_chart(fig, use_container_width=True)
+        for i in range(num_points):
+            for j, (x, y, z) in enumerate(zip(x_curr, y_curr, z_curr)):
+                # One RK4 step
+                dx = sigma * (y - x)
+                dy = x * (rho - z) - y
+                dz = x * y - beta * z
+                x_new = x + dx*dt
+                y_new = y + dy*dt
+                z_new = z + dz*dt
+                x_curr[j], y_curr[j], z_curr[j] = x_new, y_new, z_new
+                traj_data[j][0].append(x_new)
+                traj_data[j][1].append(y_new)
+                traj_data[j][2].append(z_new)
+
+            # Plot update
+            fig = go.Figure()
+            colors = ["blue","red"]
+            for j, data in enumerate(traj_data):
+                if view == "3D Attractor":
+                    fig.add_trace(go.Scatter3d(x=data[0], y=data[1], z=data[2], mode="lines", line=dict(color=colors[j], width=2)))
+                    fig.update_layout(scene=dict(xaxis_title="X", yaxis_title="Y", zaxis_title="Z"))
+                elif view == "2D Projection (x–y)":
+                    fig.add_trace(go.Scatter(x=data[0], y=data[1], mode="lines", line=dict(color=colors[j], width=2)))
+                    fig.update_layout(xaxis_title="X", yaxis_title="Y")
+                elif view == "2D Projection (x–z)":
+                    fig.add_trace(go.Scatter(x=data[0], y=data[2], mode="lines", line=dict(color=colors[j], width=2)))
+                    fig.update_layout(xaxis_title="X", yaxis_title="Z")
+                else:
+                    fig.add_trace(go.Scatter(x=data[1], y=data[2], mode="lines", line=dict(color=colors[j], width=2)))
+                    fig.update_layout(xaxis_title="Y", yaxis_title="Z")
+            fig.update_layout(title=f"Lorenz Attractor (step {i})", height=560, margin=dict(l=0,r=0,b=0,t=30))
+            fig_placeholder.plotly_chart(fig, use_container_width=True)
+
+
 
     # Metrics (mirroring your style)
     m1, m2, m3 = st.columns(3)
