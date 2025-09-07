@@ -179,27 +179,27 @@ with tabs[1]:
     #             mime="text/csv"
     #         )
 
-        # Interactive HTML
-        html_buf = io.StringIO()
-        fig.write_html(html_buf, include_plotlyjs="cdn")
-        st.download_button(
-            label="📥 Download interactive plot (HTML)",
-            data=html_buf.getvalue().encode(),
-            file_name="lorenz_plot.html",
-            mime="text/html"
-        )
+        # # Interactive HTML
+        # html_buf = io.StringIO()
+        # fig.write_html(html_buf, include_plotlyjs="cdn")
+        # st.download_button(
+        #     label="📥 Download interactive plot (HTML)",
+        #     data=html_buf.getvalue().encode(),
+        #     file_name="lorenz_plot.html",
+        #     mime="text/html"
+        # )
 
-        # Static PNG (requires 'kaleido' in requirements)
-        try:
-            png_bytes = fig.to_image(format="png", scale=2)
-            st.download_button(
-                label="🖼️ Download plot (PNG)",
-                data=png_bytes,
-                file_name="lorenz_plot.png",
-                mime="image/png"
-            )
-        except Exception:
-            st.info("To enable PNG export, add **kaleido** to requirements.txt.")
+        # # Static PNG (requires 'kaleido' in requirements)
+        # try:
+        #     png_bytes = fig.to_image(format="png", scale=2)
+        #     st.download_button(
+        #         label="🖼️ Download plot (PNG)",
+        #         data=png_bytes,
+        #         file_name="lorenz_plot.png",
+        #         mime="image/png"
+        #     )
+        # except Exception:
+        #     st.info("To enable PNG export, add **kaleido** to requirements.txt.")
 
     # Rich, optional theory (hidden by default, like your detailed physics expander)
     with st.expander("📚 Learn More — Detailed Dynamics & Chaos"):
