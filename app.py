@@ -166,18 +166,18 @@ with tabs[1]:
         st.metric("β", f"{beta:.3f}")
 
     # Downloads
-    if enable_downloads:
-        for j, label in enumerate(["trajectory1", "trajectory2"][:len(traj_data)]):
-            csv_lines = ["t,x,y,z"]
-            for i in range(len(traj_data[j][0])):
-                csv_lines.append(f"{i*dt},{traj_data[j][0][i]},{traj_data[j][1][i]},{traj_data[j][2][i]}")
-            csv_data = "\n".join(csv_lines)
-            st.download_button(
-                label=f"📥 Download {label} (CSV)",
-                data=csv_data,
-                file_name=f"{label}.csv",
-                mime="text/csv"
-            )
+    # if enable_downloads:
+    #     for j, label in enumerate(["trajectory1", "trajectory2"][:len(traj_data)]):
+    #         csv_lines = ["t,x,y,z"]
+    #         for i in range(len(traj_data[j][0])):
+    #             csv_lines.append(f"{i*dt},{traj_data[j][0][i]},{traj_data[j][1][i]},{traj_data[j][2][i]}")
+    #         csv_data = "\n".join(csv_lines)
+    #         st.download_button(
+    #             label=f"📥 Download {label} (CSV)",
+    #             data=csv_data,
+    #             file_name=f"{label}.csv",
+    #             mime="text/csv"
+    #         )
 
         # Interactive HTML
         html_buf = io.StringIO()
