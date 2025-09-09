@@ -116,6 +116,14 @@ with tabs[1]:
         generate_animation = st.button("🎬 Generate Animation", type="primary")
     with col2:
         generate_static = st.button("📊 Generate Static Plot")
+    
+    # Add speed control slider
+    animation_speed = st.slider("Animation Speed (ms per frame)", 
+                               min_value=10, 
+                               max_value=200, 
+                               value=50, 
+                               step=10,
+                               help="Lower values = faster animation")
 
     if generate_animation or generate_static:
         with st.spinner("Computing Lorenz attractor..."):
@@ -303,7 +311,7 @@ with tabs[1]:
                             'label': '▶️ Play',
                             'method': 'animate',
                             'args': [None, {
-                                'frame': {'duration': 30, 'redraw': True},
+                                'frame': {'duration': animation_speed, 'redraw': True},  # Use the slider value
                                 'fromcurrent': True,
                                 'mode': 'immediate',
                                 'transition': {'duration': 0}
