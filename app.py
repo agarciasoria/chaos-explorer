@@ -557,58 +557,103 @@ with tabs[1]:
                 key="html_download_lorenz"
             )
 
-    # Rich theory section
-    with st.expander("📚 Learn More — Detailed Dynamics & Chaos"):
+        # Rich theory section
+    with st.expander("📚 Learn More — The Mathematics and Physics of Chaos"):
         st.markdown(
             r"""
-            ### 🌪 Origins and Model
-            Edward N. Lorenz (1963) derived this 3-ODE model as a truncation of the Boussinesq equations for thermal convection.
-            Despite its simplicity, it exhibits **deterministic chaos**.
-
-            ### 🧮 The Lorenz System
-            The equations describe the motion of a fluid layer heated from below:
+            ### 🌪 The Birth of Chaos Theory
+            
+            In 1963, meteorologist Edward N. Lorenz was running weather simulations on an early computer when he made a startling discovery. 
+            By entering initial conditions with slightly less precision (0.506 instead of 0.506127), he found that the weather patterns 
+            diverged completely after just a few days of simulated time. This serendipitous observation led to one of the most profound 
+            insights in modern science: **deterministic chaos**.
+            
+            ### 🧮 Understanding the Lorenz Equations
+            
+            The Lorenz system arose from a dramatic simplification of the equations governing atmospheric convection—the rising of warm 
+            air and sinking of cool air that drives weather patterns. Starting from the Navier-Stokes equations for fluid flow coupled 
+            with heat transport, Lorenz applied a technique called Galerkin truncation to reduce the infinite-dimensional system to just 
+            three ordinary differential equations:
             
             $$\frac{dx}{dt} = \sigma (y - x)$$
             $$\frac{dy}{dt} = x (\rho - z) - y$$
             $$\frac{dz}{dt} = xy - \beta z$$
-
-            ### 🎯 Fixed Points
-            - **Origin**: $(0,0,0)$ - always exists
-            - **Wings**: $(\pm\sqrt{\beta(\rho-1)}, \pm\sqrt{\beta(\rho-1)}, \rho-1)$ when $\rho > 1$
-
-            ### 🌊 Bifurcations
-            1. **$\rho = 1$**: Pitchfork bifurcation (origin loses stability)
-            2. **$\rho \approx 24.74$**: Hopf bifurcation (for $\sigma=10, \beta=8/3$)
-            3. **$\rho > 24.74$**: Chaotic behavior emerges
-
+            
+            **What do these variables represent?**
+            - **x(t)**: The intensity of convective motion (how fast the fluid is circulating)
+            - **y(t)**: The temperature difference between rising and falling fluid columns
+            - **z(t)**: The distortion of the vertical temperature profile from linearity
+            
+            **The parameters have physical meaning:**
+            - **σ (sigma)**: The Prandtl number, representing the ratio of viscous diffusion to thermal diffusion
+            - **ρ (rho)**: The Rayleigh number, measuring the temperature difference driving convection
+            - **β (beta)**: A geometric factor related to the physical dimensions of the convection cells
+            
+            ### 🔄 The Dance of Trajectories
+            
+            When you enable "Compare two nearby trajectories" and set a perturbation δ, you're exploring one of chaos theory's most 
+            fundamental properties: **sensitive dependence on initial conditions**. The second trajectory starts at position 
+            $(x_0 + \delta, y_0 + \delta, z_0 + \delta)$, representing a tiny uncertainty in our knowledge of the initial state.
+            
+            In a predictable system, this small difference would remain small. But in the Lorenz system, the trajectories diverge 
+            exponentially—at least initially. The rate of this divergence is quantified by the positive Lyapunov exponent 
+            $\lambda \approx 0.906$, meaning nearby trajectories separate as $\sim e^{0.906t}$.
+            
+            ### 🎭 Order Hidden in Chaos
+            
+            Despite the apparent randomness, the Lorenz system exhibits profound order:
+            
+            **Fixed Points and Their Stability**
+            
+            The system always has an equilibrium at the origin (0,0,0), representing no convection. When $\rho > 1$, two additional 
+            fixed points emerge at $C^{\pm} = (\pm\sqrt{\beta(\rho-1)}, \pm\sqrt{\beta(\rho-1)}, \rho-1)$, representing steady 
+            convection rotating clockwise or counterclockwise.
+            
+            As you increase ρ from 1 to 30, the system undergoes a remarkable sequence of transitions:
+            - **ρ < 1**: All trajectories decay to the origin (no convection)
+            - **1 < ρ < 24.74**: Trajectories spiral into one of the fixed points $C^{\pm}$ (steady convection)
+            - **ρ > 24.74**: The strange attractor emerges—trajectories never settle down but jump irregularly between the two wings
+            
             ### 🦋 The Strange Attractor
-            - **Butterfly shape**: Two lobes corresponding to rotation around each fixed point
-            - **Fractal dimension**: Approximately 2.05
-            - **Sensitive dependence**: Nearby trajectories diverge exponentially
-
-            ### 📊 Lyapunov Exponents
-            For standard parameters $(\sigma=10, \rho=28, \beta=8/3)$:
-            - $\lambda_1 \approx 0.9056$ (positive - chaos indicator)
-            - $\lambda_2 \approx 0$ (neutral direction)
-            - $\lambda_3 \approx -14.572$ (strong contraction)
-
-            ### 🔬 Physical Interpretation
-            - **x**: Convective intensity
-            - **y**: Temperature difference between ascending and descending currents
-            - **z**: Deviation from linear temperature profile
-
-            ### 💡 Applications
-            1. **Weather prediction**: Demonstrates fundamental limits
-            2. **Chaos theory**: Canonical example of deterministic chaos
-            3. **Secure communications**: Chaos-based encryption
-            4. **Laser dynamics**: Similar equations describe some lasers
-            5. **Chemical reactions**: Belousov-Zhabotinsky reaction analogs
-
-            ### 🎮 Interactive Tips
-            - **Explore transitions**: Vary $\rho$ from 20 to 30 to see order→chaos
-            - **Initial conditions**: Try $(1, 0, 0)$ vs $(0, 1, 0)$ for different approaches
-            - **Time scales**: Increase $t_{max}$ to see long-term behavior
-            - **Projections**: 2D views reveal hidden structure
+            
+            The butterfly-shaped object you see is not just a trajectory—it's an **attractor**, a set toward which all nearby 
+            trajectories converge. What makes it "strange" is its fractal structure: it has zero volume but infinite surface area, 
+            with a fractal dimension of approximately 2.06.
+            
+            This means that while trajectories are attracted to this set, once on it, they diverge from each other. It's like a 
+            cosmic dance where all dancers must stay on the same intricate stage, but their individual movements remain forever 
+            unpredictable.
+            
+            ### 🌍 Why This Matters
+            
+            The Lorenz system fundamentally changed our understanding of prediction and determinism. Before Lorenz, scientists 
+            believed that deterministic equations always led to predictable behavior—if you knew the equations and initial conditions 
+            precisely, you could predict the future indefinitely. The Lorenz system shattered this illusion, showing that even simple 
+            deterministic systems can generate behavior so complex it appears random.
+            
+            This insight explains why weather prediction has fundamental limits (about 2 weeks), why ecosystems can suddenly collapse, 
+            and why financial markets exhibit wild swings. It's also inspired applications in secure communications (using chaos to 
+            encrypt messages), understanding cardiac arrhythmias, and even creating better random number generators.
+            
+            ### 🎮 Exploration Guide
+            
+            To truly appreciate the richness of this system, try these experiments:
+            
+            1. **Witness the birth of chaos**: Set ρ = 20 and slowly increase it to 30. Around ρ ≈ 24.74, you'll see the transition 
+               from predictable spiraling to chaotic wandering.
+            
+            2. **Test sensitivity**: Enable two trajectories with δ = 0.00001. Watch how they stay together initially but eventually 
+               end up on opposite wings of the attractor.
+            
+            3. **Find periodic windows**: Not all is chaos! Try ρ = 99.65 or ρ = 160—you'll find periodic behavior hidden within 
+               the chaotic regime.
+            
+            4. **Explore projections**: The 2D views reveal hidden structure. The x-z projection shows how trajectories spiral outward 
+               before jumping between wings.
+            
+            Remember: you're not just watching equations evolve—you're witnessing the fundamental unpredictability woven into the 
+            fabric of nature itself. Every flutter of the Lorenz butterfly reminds us that the universe is far more mysterious and 
+            beautiful than our intuitions suggest.
             """
         )
 # ============================================
