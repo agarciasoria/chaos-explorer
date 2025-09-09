@@ -8,6 +8,7 @@ import numpy as np
 import streamlit as st
 from scipy.integrate import solve_ivp
 import plotly.graph_objects as go
+import time
 
 # ---------- Utilities ----------
 def lorenz_system(t, state, sigma, rho, beta):
