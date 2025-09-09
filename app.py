@@ -51,7 +51,13 @@ with tabs[0]:
     st.header("Double Pendulum")
     st.write("Coming soon...")
 
-------- Controls ------------------
+# ============================================
+# TAB 2: LORENZ ATTRACTOR
+# ============================================
+with tabs[1]:
+    st.header("Lorenz Attractor")
+    st.write("Explore chaos through the 3D Lorenz system and its 2D projections")
+    #------- Controls ------------------
     col1, col2, col3 = st.columns([1,1,1])
     with col1:
         sigma = st.slider("σ (Prandtl number)", 0.0, 20.0, 10.0, 0.1)
@@ -96,12 +102,6 @@ with tabs[0]:
             - **β**: geometric factor
             - **Chaos** arises for certain parameters: nearby trajectories diverge exponentially on a strange attractor
             """)
-# ============================================
-# TAB 2: LORENZ ATTRACTOR
-# ============================================
-with tabs[1]:
-    st.header("Lorenz Attractor")
-    st.write("Explore chaos through the 3D Lorenz system and its 2D projections")
 
     # ----------- Real-time Animation ------------------
     view = st.radio("Select View", ["3D Attractor", "2D Projection (x–y)", "2D Projection (x–z)", "2D Projection (y–z)"], horizontal=True)
