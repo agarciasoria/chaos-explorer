@@ -51,14 +51,7 @@ with tabs[0]:
     st.header("Double Pendulum")
     st.write("Coming soon...")
 
-# ============================================
-# TAB 2: LORENZ ATTRACTOR
-# ============================================
-with tabs[1]:
-    st.header("Lorenz Attractor")
-    st.write("Explore chaos through the 3D Lorenz system and its 2D projections")
-
-    # ------------------ Controls ------------------
+------- Controls ------------------
     col1, col2, col3 = st.columns([1,1,1])
     with col1:
         sigma = st.slider("σ (Prandtl number)", 0.0, 20.0, 10.0, 0.1)
@@ -103,12 +96,36 @@ with tabs[1]:
             - **β**: geometric factor
             - **Chaos** arises for certain parameters: nearby trajectories diverge exponentially on a strange attractor
             """)
+# ============================================
+# TAB 2: LORENZ ATTRACTOR
+# ============================================
+with tabs[1]:
+    st.header("Lorenz Attractor")
+    st.write("Explore chaos through the 3D Lorenz system and its 2D projections")
 
-    # ------------------ Real-time Animation ------------------
+    # ----------- Real-time Animation ------------------
     view = st.radio("Select View", ["3D Attractor", "2D Projection (x–y)", "2D Projection (x–z)", "2D Projection (y–z)"], horizontal=True)
-    play_button = st.button("▶ Play Animation")
+    
+    col1, col2, col3 = st.columns([1, 1, 4])
+    with col1:
+        play_button = st.button("▶ Play Animation")
+    with col2:
+        stop_button = st.button("⏹ Stop")
+    
+    # Animation speed control
+    animation_speed = st.slider("Animation Speed", min_value=0.001, max_value=0.1, value=0.01, step=0.001)
+
+    # Initialize session state for trajectory data
+    if 'traj_data' not in st.session_state:
+        st.session_state.traj_data = None
+    if 'animation_running' not in st.session_state:
+        st.session_state.animation_running = False
+
+    if stop_button:
+        st.session_state.animation_running = False
 
     if play_button:
+        st.session_state.animation_running = True
         # Initialize trajectories
         trajs = [(x0, y0, z0)]
         if show_second:
@@ -119,11 +136,14 @@ with tabs[1]:
         traj_data = [[ [xi], [yi], [zi] ] for xi, yi, zi in trajs]
 
         # Integrate and animate step by step
-        x_curr = [x0 for _ in trajs]
-        y_curr = [y0 for _ in trajs]
-        z_curr = [z0 for _ in trajs]
+        x_curr = [traj[0] for traj in trajs]
+        y_curr = [traj[1] for traj in trajs]
+        z_curr = [traj[2] for traj in trajs]
 
         for i in range(num_points):
+            if not st.session_state.animation_running:
+                break
+                
             for j, (x, y, z) in enumerate(zip(x_curr, y_curr, z_curr)):
                 # One RK4 step
                 dx = sigma * (y - x)
@@ -139,22 +159,44 @@ with tabs[1]:
 
             # Plot update
             fig = go.Figure()
-            colors = ["blue","red"]
+            colors = ["blue", "red"]
             for j, data in enumerate(traj_data):
                 if view == "3D Attractor":
-                    fig.add_trace(go.Scatter3d(x=data[0], y=data[1], z=data[2], mode="lines", line=dict(color=colors[j], width=2)))
-                    fig.update_layout(scene=dict(xaxis_title="X", yaxis_title="Y", zaxis_title="Z"))
+                    fig.add_trace(go.Scatter3d(x=data[0], y=data[1], z=data[2], mode="lines", 
+                                             line=dict(color=colors[j % len(colors)], width=2),
+                                             name=f"Trajectory {j+1}"))
+                    fig.update_layout(scene=dict(xaxis_title="X", yaxis_title="Y", zaxis_title="Z",
+                                               camera=dict(eye=dict(x=1.5, y=1.5, z=1.5))))
                 elif view == "2D Projection (x–y)":
-                    fig.add_trace(go.Scatter(x=data[0], y=data[1], mode="lines", line=dict(color=colors[j], width=2)))
+                    fig.add_trace(go.Scatter(x=data[0], y=data[1], mode="lines", 
+                                           line=dict(color=colors[j % len(colors)], width=2),
+                                           name=f"Trajectory {j+1}"))
                     fig.update_layout(xaxis_title="X", yaxis_title="Y")
                 elif view == "2D Projection (x–z)":
-                    fig.add_trace(go.Scatter(x=data[0], y=data[2], mode="lines", line=dict(color=colors[j], width=2)))
+                    fig.add_trace(go.Scatter(x=data[0], y=data[2], mode="lines", 
+                                           line=dict(color=colors[j % len(colors)], width=2),
+                                           name=f"Trajectory {j+1}"))
                     fig.update_layout(xaxis_title="X", yaxis_title="Z")
-                else:
-                    fig.add_trace(go.Scatter(x=data[1], y=data[2], mode="lines", line=dict(color=colors[j], width=2)))
+                else:  # y-z projection
+                    fig.add_trace(go.Scatter(x=data[1], y=data[2], mode="lines", 
+                                           line=dict(color=colors[j % len(colors)], width=2),
+                                           name=f"Trajectory {j+1}"))
                     fig.update_layout(xaxis_title="Y", yaxis_title="Z")
-            fig.update_layout(title=f"Lorenz Attractor (step {i})", height=560, margin=dict(l=0,r=0,b=0,t=30))
+                    
+            fig.update_layout(
+                title=f"Lorenz Attractor (step {i+1}/{num_points})", 
+                height=560, 
+                margin=dict(l=0, r=0, b=0, t=30),
+                showlegend=True
+            )
             fig_placeholder.plotly_chart(fig, use_container_width=True)
+            
+            # Allow UI to update
+            time.sleep(animation_speed)
+        
+        # Save trajectory data to session state
+        st.session_state.traj_data = traj_data
+        st.session_state.animation_running = False
 
     # Metrics (mirroring your style)
     m1, m2, m3 = st.columns(3)
@@ -165,43 +207,82 @@ with tabs[1]:
     with m3:
         st.metric("β", f"{beta:.3f}")
 
-    # Downloads
-    # if enable_downloads:
-    #     for j, label in enumerate(["trajectory1", "trajectory2"][:len(traj_data)]):
-    #         csv_lines = ["t,x,y,z"]
-    #         for i in range(len(traj_data[j][0])):
-    #             csv_lines.append(f"{i*dt},{traj_data[j][0][i]},{traj_data[j][1][i]},{traj_data[j][2][i]}")
-    #         csv_data = "\n".join(csv_lines)
-    #         st.download_button(
-    #             label=f"📥 Download {label} (CSV)",
-    #             data=csv_data,
-    #             file_name=f"{label}.csv",
-    #             mime="text/csv"
-    #         )
+    # Downloads - only show if trajectory data exists
+    if st.session_state.traj_data is not None and enable_downloads:
+        st.write("### Download Options")
+        
+        traj_data = st.session_state.traj_data
+        
+        # CSV downloads
+        col1, col2 = st.columns(2)
+        for j in range(len(traj_data)):
+            csv_lines = ["t,x,y,z"]
+            for i in range(len(traj_data[j][0])):
+                t_val = i * dt
+                csv_lines.append(f"{t_val:.6f},{traj_data[j][0][i]:.6f},{traj_data[j][1][i]:.6f},{traj_data[j][2][i]:.6f}")
+            csv_data = "\n".join(csv_lines)
+            
+            with col1 if j == 0 else col2:
+                st.download_button(
+                    label=f"📥 Download Trajectory {j+1} (CSV)",
+                    data=csv_data,
+                    file_name=f"lorenz_trajectory_{j+1}.csv",
+                    mime="text/csv",
+                    key=f"csv_download_{j}"
+                )
 
-        # # Interactive HTML
-        # html_buf = io.StringIO()
-        # fig.write_html(html_buf, include_plotlyjs="cdn")
-        # st.download_button(
-        #     label="📥 Download interactive plot (HTML)",
-        #     data=html_buf.getvalue().encode(),
-        #     file_name="lorenz_plot.html",
-        #     mime="text/html"
-        # )
+        # Create final figure for downloads
+        fig_final = go.Figure()
+        colors = ["blue", "red"]
+        for j, data in enumerate(traj_data):
+            if view == "3D Attractor":
+                fig_final.add_trace(go.Scatter3d(x=data[0], y=data[1], z=data[2], mode="lines", 
+                                         line=dict(color=colors[j % len(colors)], width=2),
+                                         name=f"Trajectory {j+1}"))
+                fig_final.update_layout(scene=dict(xaxis_title="X", yaxis_title="Y", zaxis_title="Z"))
+            elif view == "2D Projection (x–y)":
+                fig_final.add_trace(go.Scatter(x=data[0], y=data[1], mode="lines", 
+                                       line=dict(color=colors[j % len(colors)], width=2),
+                                       name=f"Trajectory {j+1}"))
+                fig_final.update_layout(xaxis_title="X", yaxis_title="Y")
+            elif view == "2D Projection (x–z)":
+                fig_final.add_trace(go.Scatter(x=data[0], y=data[2], mode="lines", 
+                                       line=dict(color=colors[j % len(colors)], width=2),
+                                       name=f"Trajectory {j+1}"))
+                fig_final.update_layout(xaxis_title="X", yaxis_title="Z")
+            else:
+                fig_final.add_trace(go.Scatter(x=data[1], y=data[2], mode="lines", 
+                                       line=dict(color=colors[j % len(colors)], width=2),
+                                       name=f"Trajectory {j+1}"))
+                fig_final.update_layout(xaxis_title="Y", yaxis_title="Z")
 
-        # # Static PNG (requires 'kaleido' in requirements)
-        # try:
-        #     png_bytes = fig.to_image(format="png", scale=2)
-        #     st.download_button(
-        #         label="🖼️ Download plot (PNG)",
-        #         data=png_bytes,
-        #         file_name="lorenz_plot.png",
-        #         mime="image/png"
-        #     )
-        # except Exception:
-        #     st.info("To enable PNG export, add **kaleido** to requirements.txt.")
+        fig_final.update_layout(title="Lorenz Attractor", height=560, showlegend=True)
 
-    # Rich, optional theory (hidden by default, like your detailed physics expander)
+        # Interactive HTML
+        html_buf = io.StringIO()
+        fig_final.write_html(html_buf, include_plotlyjs="cdn")
+        st.download_button(
+            label="📥 Download interactive plot (HTML)",
+            data=html_buf.getvalue().encode(),
+            file_name="lorenz_plot.html",
+            mime="text/html",
+            key="html_download"
+        )
+
+        # Static PNG (requires 'kaleido' in requirements)
+        try:
+            png_bytes = fig_final.to_image(format="png", scale=2)
+            st.download_button(
+                label="🖼️ Download plot (PNG)",
+                data=png_bytes,
+                file_name="lorenz_plot.png",
+                mime="image/png",
+                key="png_download"
+            )
+        except Exception:
+            st.info("To enable PNG export, add **kaleido** to requirements.txt.")
+
+    # Rich, optional theory (hidden by default)
     with st.expander("📚 Learn More — Detailed Dynamics & Chaos"):
         st.markdown(
             r"""
@@ -213,17 +294,13 @@ with tabs[1]:
             Solve $\dot{x}=\dot{y}=\dot{z}=0$:
             - $E_0 = (0,0,0)$ for all parameters.
             - For $\rho > 1$, two additional equilibria appear via a pitchfork:
-              \[
-              E_{\pm} = \left(\pm\sqrt{\beta(\rho-1)},\ \pm\sqrt{\beta(\rho-1)},\ \rho-1\right).
-              \]
+              $$E_{\pm} = \left(\pm\sqrt{\beta(\rho-1)},\ \pm\sqrt{\beta(\rho-1)},\ \rho-1\right).$$
 
             ### 🔒 Stability (classical results)
             - $E_0$ is stable for $0 < \rho < 1$ and loses stability at $\rho=1$.
             - For the standard parameters $\sigma=10,\ \beta=\tfrac{8}{3}$,
               the nontrivial equilibria $E_\pm$ lose stability via a Hopf bifurcation at
-              \[
-              \rho_H \approx \frac{\sigma(\sigma+\beta+3)}{\sigma-\beta-1} \approx 24.74,
-              \]
+              $$\rho_H \approx \frac{\sigma(\sigma+\beta+3)}{\sigma-\beta-1} \approx 24.74,$$
               beyond which chaotic dynamics (the strange attractor) arise for typical initial conditions.
 
             ### 🧭 Symmetry & Dissipation
@@ -244,7 +321,6 @@ with tabs[1]:
             - Reduce Δt or increase $t_{\max}$ to see finer features (heavier compute).
             """
         )
-
 # ============================================
 # TAB 3..5 (placeholders)
 # ============================================
