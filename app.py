@@ -157,7 +157,6 @@ with tabs[1]:
             st.session_state.lorenz_traj_data_final = traj_data
 
         # Create animation or static plot
-                # Create animation or static plot
         if generate_animation:
             st.info("🎬 Animation ready! Use the controls below to play/pause.")
             
@@ -168,11 +167,55 @@ with tabs[1]:
             # Calculate step size for frames
             step_size = max(1, len(traj_data[0][0]) // animation_frames)
             
+            # First, determine the total number of traces we'll have
+            num_trajectories = len(traj_data)
+            num_traces_per_frame = num_trajectories * 2  # trajectory + marker for each
+            
+            # Create initial empty traces for the figure
+            initial_data = []
+            if view == "3D Attractor":
+                # Add empty traces for each trajectory
+                for j in range(num_trajectories):
+                    initial_data.append(go.Scatter3d(
+                        x=[], y=[], z=[],
+                        mode='lines',
+                        line=dict(color=colors[j % len(colors)], width=2),
+                        name=f'Trajectory {j+1}'
+                    ))
+                # Add empty traces for each marker
+                for j in range(num_trajectories):
+                    initial_data.append(go.Scatter3d(
+                        x=[], y=[], z=[],
+                        mode='markers',
+                        marker=dict(color=colors[j % len(colors)], size=8),
+                        name=f'Position {j+1}',
+                        showlegend=False
+                    ))
+            else:  # 2D projections
+                # Add empty traces for each trajectory
+                for j in range(num_trajectories):
+                    initial_data.append(go.Scatter(
+                        x=[], y=[],
+                        mode='lines',
+                        line=dict(color=colors[j % len(colors)], width=2),
+                        name=f'Trajectory {j+1}'
+                    ))
+                # Add empty traces for each marker
+                for j in range(num_trajectories):
+                    initial_data.append(go.Scatter(
+                        x=[], y=[],
+                        mode='markers',
+                        marker=dict(color=colors[j % len(colors)], size=10),
+                        name=f'Position {j+1}',
+                        showlegend=False
+                    ))
+            
+            # Now create frames with consistent trace ordering
             for k in range(0, len(traj_data[0][0]), step_size):
                 frame_data = []
                 
                 if view == "3D Attractor":
-                    # Add all trajectory lines for this frame
+                    # Add trajectory data (first half of traces)
                     for j, data in enumerate(traj_data):
                         frame_data.append(go.Scatter3d(
                             x=data[0][:k+1], 
@@ -182,9 +225,9 @@ with tabs[1]:
                             line=dict(color=colors[j % len(colors)], width=2),
                             name=f'Trajectory {j+1}'
                         ))
-                    # Add position markers for all trajectories
-                    if k > 0:
-                        for j, data in enumerate(traj_data):
+                    # Add marker data (second half of traces)
+                    for j, data in enumerate(traj_data):
+                        if k > 0:
                             frame_data.append(go.Scatter3d(
                                 x=[data[0][k]], 
                                 y=[data[1][k]], 
@@ -194,6 +237,15 @@ with tabs[1]:
                                 name=f'Position {j+1}',
                                 showlegend=False
                             ))
+                        else:
+                            # Empty marker for first frame
+                            frame_data.append(go.Scatter3d(
+                                x=[], y=[], z=[],
+                                mode='markers',
+                                marker=dict(color=colors[j % len(colors)], size=8),
+                                showlegend=False
+                            ))
+                            
                 elif view == "2D Projection (x–y)":
                     for j, data in enumerate(traj_data):
                         frame_data.append(go.Scatter(
@@ -203,8 +255,8 @@ with tabs[1]:
                             line=dict(color=colors[j % len(colors)], width=2),
                             name=f'Trajectory {j+1}'
                         ))
-                    if k > 0:
-                        for j, data in enumerate(traj_data):
+                    for j, data in enumerate(traj_data):
+                        if k > 0:
                             frame_data.append(go.Scatter(
                                 x=[data[0][k]], 
                                 y=[data[1][k]],
@@ -212,6 +264,14 @@ with tabs[1]:
                                 marker=dict(color=colors[j % len(colors)], size=10),
                                 showlegend=False
                             ))
+                        else:
+                            frame_data.append(go.Scatter(
+                                x=[], y=[],
+                                mode='markers',
+                                marker=dict(color=colors[j % len(colors)], size=10),
+                                showlegend=False
+                            ))
+                            
                 elif view == "2D Projection (x–z)":
                     for j, data in enumerate(traj_data):
                         frame_data.append(go.Scatter(
@@ -221,8 +281,8 @@ with tabs[1]:
                             line=dict(color=colors[j % len(colors)], width=2),
                             name=f'Trajectory {j+1}'
                         ))
-                    if k > 0:
-                        for j, data in enumerate(traj_data):
+                    for j, data in enumerate(traj_data):
+                        if k > 0:
                             frame_data.append(go.Scatter(
                                 x=[data[0][k]], 
                                 y=[data[2][k]],
@@ -230,6 +290,14 @@ with tabs[1]:
                                 marker=dict(color=colors[j % len(colors)], size=10),
                                 showlegend=False
                             ))
+                        else:
+                            frame_data.append(go.Scatter(
+                                x=[], y=[],
+                                mode='markers',
+                                marker=dict(color=colors[j % len(colors)], size=10),
+                                showlegend=False
+                            ))
+                            
                 else:  # y-z projection
                     for j, data in enumerate(traj_data):
                         frame_data.append(go.Scatter(
@@ -239,8 +307,8 @@ with tabs[1]:
                             line=dict(color=colors[j % len(colors)], width=2),
                             name=f'Trajectory {j+1}'
                         ))
-                    if k > 0:
-                        for j, data in enumerate(traj_data):
+                    for j, data in enumerate(traj_data):
+                        if k > 0:
                             frame_data.append(go.Scatter(
                                 x=[data[1][k]], 
                                 y=[data[2][k]],
@@ -248,20 +316,25 @@ with tabs[1]:
                                 marker=dict(color=colors[j % len(colors)], size=10),
                                 showlegend=False
                             ))
+                        else:
+                            frame_data.append(go.Scatter(
+                                x=[], y=[],
+                                mode='markers',
+                                marker=dict(color=colors[j % len(colors)], size=10),
+                                showlegend=False
+                            ))
                 
-                frames.append(go.Frame(
-                    data=frame_data, 
-                    name=str(k),
-                    traces=list(range(len(frame_data)))  # Important: specify which traces to update
-                ))
+                frames.append(go.Frame(data=frame_data, name=str(k)))
 
-            # Create the initial figure with the first frame's data
-            initial_data = frames[0].data if frames else []
-            
+            # Create figure with initial empty traces
             fig = go.Figure(
                 data=initial_data,
                 frames=frames
             )
+            
+            # Update with first frame data to show something initially
+            if frames:
+                fig.update_traces(frames[0].data)
 
             # Update layout based on view
             if view == "3D Attractor":
@@ -287,18 +360,17 @@ with tabs[1]:
                     yaxis=dict(autorange=True)
                 )
 
-            # Add animation controls with improved settings
+            # Add animation controls
             fig.update_layout(
                 title="Lorenz Attractor Animation",
                 showlegend=True,
                 updatemenus=[{
                     'type': 'buttons',
                     'showactive': False,
-                    'y': 1.0,
+                    'y': 1.15,
                     'x': 0.0,
                     'xanchor': 'left',
                     'yanchor': 'top',
-                    'pad': {'r': 10, 't': 10},
                     'buttons': [
                         {
                             'label': '▶️ Play',
@@ -317,6 +389,14 @@ with tabs[1]:
                                 'frame': {'duration': 0, 'redraw': False},
                                 'mode': 'immediate'
                             }]
+                        },
+                        {
+                            'label': '⏮️ Reset',
+                            'method': 'animate',
+                            'args': [[str(0)], {
+                                'frame': {'duration': 0, 'redraw': True},
+                                'mode': 'immediate'
+                            }]
                         }
                     ]
                 }],
@@ -329,11 +409,11 @@ with tabs[1]:
                             'frame': {'duration': 0, 'redraw': True},
                             'mode': 'immediate'
                         }]
-                    } for i in range(min(len(frames), animation_frames))],
+                    } for i in range(len(frames))],
                     'len': 0.9,
                     'x': 0.05,
                     'xanchor': 'left',
-                    'y': -0.05,
+                    'y': 0,
                     'yanchor': 'top',
                     'currentvalue': {
                         'font': {'size': 12},
@@ -344,7 +424,7 @@ with tabs[1]:
                 }]
             )
 
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True})
+            st.plotly_chart(fig, use_container_width=True)
 
         else:  # Static plot
             # Create static figure
