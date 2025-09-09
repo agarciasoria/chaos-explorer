@@ -58,19 +58,18 @@ with tabs[0]:
 with tabs[1]:
     st.header("Lorenz Attractor")
     st.write("Explore chaos through the 3D Lorenz system and its 2D projections")
-    st.header("Lorenz Attractor")
-    st.write("Explore chaos through the 3D Lorenz system and its 2D projections")
+    
     #------- Controls ------------------
     col1, col2, col3 = st.columns([1,1,1])
     with col1:
         sigma = st.slider("σ (Prandtl number)", 0.0, 20.0, 10.0, 0.1)
-        x0 = st.number_input("x₀", 0.0, step=0.1)
+        x0 = st.number_input("x₀", value=0.0, step=0.1)
     with col2:
         rho = st.slider("ρ (Rayleigh number)", 0.0, 60.0, 28.0, 0.5)
-        y0 = st.number_input("y₀", 1.0, step=0.1)
+        y0 = st.number_input("y₀", value=1.0, step=0.1)
     with col3:
         beta = st.slider("β", 0.0, 10.0, float(8/3), 0.1)
-        z0 = st.number_input("z₀", 1.05, step=0.1)
+        z0 = st.number_input("z₀", value=1.05, step=0.1)
 
     colA, colB = st.columns(2)
     with colA:
@@ -105,70 +104,137 @@ with tabs[1]:
             - **β**: geometric factor
             - **Chaos** arises for certain parameters: nearby trajectories diverge exponentially on a strange attractor
             """)
-    # Initialize session state
-    if 'lorenz_animation_step' not in st.session_state:
-        st.session_state.lorenz_animation_step = 0
-    if 'lorenz_traj_data' not in st.session_state:
-        st.session_state.lorenz_traj_data = None
-    if 'lorenz_current_state' not in st.session_state:
-        st.session_state.lorenz_current_state = None
-    if 'lorenz_num_points' not in st.session_state:
-        st.session_state.lorenz_num_points = 0
-
-    # ----------- Real-time Animation ------------------
+    
+    # ----------- Animation Controls ------------------
     view = st.radio("Select View", ["3D Attractor", "2D Projection (x–y)", "2D Projection (x–z)", "2D Projection (y–z)"], horizontal=True)
     
     col1, col2, col3 = st.columns([1, 1, 4])
     with col1:
         play_button = st.button("▶ Play Animation")
     with col2:
-        stop_button = st.button("⏹ Stop")
-    with col3:
-        reset_button = st.button("🔄 Reset")
-
+        compute_button = st.button("⚡ Quick Compute")
+    
     # Animation settings
-    steps_per_frame = st.slider("Steps per frame", min_value=1, max_value=10, value=3)
+    animation_speed = st.slider("Animation Speed (lower is faster)", min_value=0.001, max_value=0.1, value=0.02, step=0.001)
+    
+    # Create placeholders for the plot and progress bar
+    plot_placeholder = st.empty()
+    progress_placeholder = st.empty()
+    status_placeholder = st.empty()
 
-    if reset_button or stop_button:
-        st.session_state.lorenz_animation_step = 0
-        if reset_button:
-            st.session_state.lorenz_traj_data = None
-            st.session_state.lorenz_current_state = None
+    # Initialize trajectory data holder
+    if 'lorenz_traj_data_final' not in st.session_state:
+        st.session_state.lorenz_traj_data_final = None
 
+    # Quick compute - calculate everything at once
+    if compute_button:
+        with st.spinner("Computing trajectories..."):
+            # Initialize trajectories
+            trajs = [(x0, y0, z0)]
+            if show_second:
+                trajs.append((x0+perturb, y0+perturb, z0+perturb))
+            
+            num_points = int(t_max/dt)
+            traj_data = [[[xi], [yi], [zi]] for xi, yi, zi in trajs]
+            
+            # Integrate all at once
+            x_curr = [traj[0] for traj in trajs]
+            y_curr = [traj[1] for traj in trajs]
+            z_curr = [traj[2] for traj in trajs]
+            
+            for i in range(num_points):
+                for j, (x, y, z) in enumerate(zip(x_curr, y_curr, z_curr)):
+                    # RK4 step
+                    dx = sigma * (y - x)
+                    dy = x * (rho - z) - y
+                    dz = x * y - beta * z
+                    
+                    x_new = x + dx*dt
+                    y_new = y + dy*dt
+                    z_new = z + dz*dt
+                    
+                    x_curr[j], y_curr[j], z_curr[j] = x_new, y_new, z_new
+                    traj_data[j][0].append(x_new)
+                    traj_data[j][1].append(y_new)
+                    traj_data[j][2].append(z_new)
+            
+            st.session_state.lorenz_traj_data_final = traj_data
+            
+            # Plot final result
+            fig = go.Figure()
+            colors = ["blue", "red"]
+            for j, data in enumerate(traj_data):
+                if view == "3D Attractor":
+                    fig.add_trace(go.Scatter3d(
+                        x=data[0], y=data[1], z=data[2], 
+                        mode="lines", 
+                        line=dict(color=colors[j % len(colors)], width=2),
+                        name=f"Trajectory {j+1}"
+                    ))
+                    fig.update_layout(
+                        scene=dict(
+                            xaxis_title="X", yaxis_title="Y", zaxis_title="Z",
+                            camera=dict(eye=dict(x=1.5, y=1.5, z=1.5))
+                        )
+                    )
+                elif view == "2D Projection (x–y)":
+                    fig.add_trace(go.Scatter(
+                        x=data[0], y=data[1], 
+                        mode="lines", 
+                        line=dict(color=colors[j % len(colors)], width=2),
+                        name=f"Trajectory {j+1}"
+                    ))
+                    fig.update_layout(xaxis_title="X", yaxis_title="Y")
+                elif view == "2D Projection (x–z)":
+                    fig.add_trace(go.Scatter(
+                        x=data[0], y=data[2], 
+                        mode="lines", 
+                        line=dict(color=colors[j % len(colors)], width=2),
+                        name=f"Trajectory {j+1}"
+                    ))
+                    fig.update_layout(xaxis_title="X", yaxis_title="Z")
+                else:  # y-z projection
+                    fig.add_trace(go.Scatter(
+                        x=data[1], y=data[2], 
+                        mode="lines", 
+                        line=dict(color=colors[j % len(colors)], width=2),
+                        name=f"Trajectory {j+1}"
+                    ))
+                    fig.update_layout(xaxis_title="Y", yaxis_title="Z")
+            
+            fig.update_layout(
+                title="Lorenz Attractor (Complete)", 
+                height=560, 
+                margin=dict(l=0, r=0, b=0, t=30),
+                showlegend=True
+            )
+            
+            plot_placeholder.plotly_chart(fig, use_container_width=True)
+            status_placeholder.success("Computation complete!")
+
+    # Animated version
     if play_button:
-        # Initialize animation
-        st.session_state.lorenz_animation_step = 1
-        st.session_state.lorenz_num_points = int(t_max/dt)
-        
         # Initialize trajectories
         trajs = [(x0, y0, z0)]
         if show_second:
             trajs.append((x0+perturb, y0+perturb, z0+perturb))
         
-        st.session_state.lorenz_traj_data = [[[xi], [yi], [zi]] for xi, yi, zi in trajs]
-        st.session_state.lorenz_current_state = {
-            'x': [traj[0] for traj in trajs],
-            'y': [traj[1] for traj in trajs],
-            'z': [traj[2] for traj in trajs]
-        }
-        st.rerun()
-
-    # Continue animation if in progress
-    if st.session_state.lorenz_animation_step > 0 and st.session_state.lorenz_animation_step <= st.session_state.lorenz_num_points:
-        traj_data = st.session_state.lorenz_traj_data
-        current_state = st.session_state.lorenz_current_state
+        num_points = int(t_max/dt)
+        traj_data = [[[xi], [yi], [zi]] for xi, yi, zi in trajs]
         
-        # Compute multiple steps per frame for smoother animation
-        for _ in range(steps_per_frame):
-            if st.session_state.lorenz_animation_step > st.session_state.lorenz_num_points:
-                break
-                
-            for j in range(len(traj_data)):
-                x = current_state['x'][j]
-                y = current_state['y'][j]
-                z = current_state['z'][j]
-                
-                # RK4 integration step
+        # Integrate and animate step by step
+        x_curr = [traj[0] for traj in trajs]
+        y_curr = [traj[1] for traj in trajs]
+        z_curr = [traj[2] for traj in trajs]
+        
+        # Calculate steps to skip for smooth animation (aim for ~100 frames total)
+        total_frames = min(100, num_points)
+        step_size = max(1, num_points // total_frames)
+        
+        for i in range(num_points):
+            # Calculate new positions
+            for j, (x, y, z) in enumerate(zip(x_curr, y_curr, z_curr)):
+                # RK4 step
                 dx = sigma * (y - x)
                 dy = x * (rho - z) - y
                 dz = x * y - beta * z
@@ -177,17 +243,113 @@ with tabs[1]:
                 y_new = y + dy*dt
                 z_new = z + dz*dt
                 
-                current_state['x'][j] = x_new
-                current_state['y'][j] = y_new
-                current_state['z'][j] = z_new
-                
+                x_curr[j], y_curr[j], z_curr[j] = x_new, y_new, z_new
                 traj_data[j][0].append(x_new)
                 traj_data[j][1].append(y_new)
                 traj_data[j][2].append(z_new)
             
-            st.session_state.lorenz_animation_step += 1
+            # Update plot every step_size iterations
+            if i % step_size == 0 or i == num_points - 1:
+                # Create plot
+                fig = go.Figure()
+                colors = ["blue", "red"]
+                
+                for j, data in enumerate(traj_data):
+                    if view == "3D Attractor":
+                        fig.add_trace(go.Scatter3d(
+                            x=data[0], y=data[1], z=data[2], 
+                            mode="lines", 
+                            line=dict(color=colors[j % len(colors)], width=2),
+                            name=f"Trajectory {j+1}"
+                        ))
+                        # Add current position marker
+                        fig.add_trace(go.Scatter3d(
+                            x=[data[0][-1]], y=[data[1][-1]], z=[data[2][-1]], 
+                            mode="markers",
+                            marker=dict(color=colors[j % len(colors)], size=6),
+                            name=f"Current position {j+1}",
+                            showlegend=False
+                        ))
+                        fig.update_layout(
+                            scene=dict(
+                                xaxis_title="X", yaxis_title="Y", zaxis_title="Z",
+                                camera=dict(eye=dict(x=1.5, y=1.5, z=1.5))
+                            )
+                        )
+                    elif view == "2D Projection (x–y)":
+                        fig.add_trace(go.Scatter(
+                            x=data[0], y=data[1], 
+                            mode="lines", 
+                            line=dict(color=colors[j % len(colors)], width=2),
+                            name=f"Trajectory {j+1}"
+                        ))
+                        # Add current position marker
+                        fig.add_trace(go.Scatter(
+                            x=[data[0][-1]], y=[data[1][-1]], 
+                            mode="markers",
+                            marker=dict(color=colors[j % len(colors)], size=8),
+                            name=f"Current position {j+1}",
+                            showlegend=False
+                        ))
+                        fig.update_layout(xaxis_title="X", yaxis_title="Y")
+                    elif view == "2D Projection (x–z)":
+                        fig.add_trace(go.Scatter(
+                            x=data[0], y=data[2], 
+                            mode="lines", 
+                            line=dict(color=colors[j % len(colors)], width=2),
+                            name=f"Trajectory {j+1}"
+                        ))
+                        fig.add_trace(go.Scatter(
+                            x=[data[0][-1]], y=[data[2][-1]], 
+                            mode="markers",
+                            marker=dict(color=colors[j % len(colors)], size=8),
+                            name=f"Current position {j+1}",
+                            showlegend=False
+                        ))
+                        fig.update_layout(xaxis_title="X", yaxis_title="Z")
+                    else:  # y-z projection
+                        fig.add_trace(go.Scatter(
+                            x=data[1], y=data[2], 
+                            mode="lines", 
+                            line=dict(color=colors[j % len(colors)], width=2),
+                            name=f"Trajectory {j+1}"
+                        ))
+                        fig.add_trace(go.Scatter(
+                            x=[data[1][-1]], y=[data[2][-1]], 
+                            mode="markers",
+                            marker=dict(color=colors[j % len(colors)], size=8),
+                            name=f"Current position {j+1}",
+                            showlegend=False
+                        ))
+                        fig.update_layout(xaxis_title="Y", yaxis_title="Z")
+                
+                # Update layout
+                progress = (i + 1) / num_points
+                fig.update_layout(
+                    title=f"Lorenz Attractor ({progress*100:.1f}% complete)", 
+                    height=560, 
+                    margin=dict(l=0, r=0, b=0, t=30),
+                    showlegend=True
+                )
+                
+                # Update the plot in the placeholder
+                plot_placeholder.plotly_chart(fig, use_container_width=True, key=f"plot_{i}")
+                
+                # Update progress
+                progress_placeholder.progress(progress)
+                status_placeholder.info(f"Step {i+1} of {num_points}")
+                
+                # Small delay for animation
+                time.sleep(animation_speed)
+        
+        # Save final data
+        st.session_state.lorenz_traj_data_final = traj_data
+        status_placeholder.success("Animation complete!")
+        progress_placeholder.empty()
 
-        # Create and display plot
+    # Show static plot if we have data
+    elif st.session_state.lorenz_traj_data_final is not None:
+        traj_data = st.session_state.lorenz_traj_data_final
         fig = go.Figure()
         colors = ["blue", "red"]
         
@@ -229,80 +391,18 @@ with tabs[1]:
                     name=f"Trajectory {j+1}"
                 ))
                 fig.update_layout(xaxis_title="Y", yaxis_title="Z")
-
-        progress = st.session_state.lorenz_animation_step / st.session_state.lorenz_num_points
+        
         fig.update_layout(
-            title=f"Lorenz Attractor ({progress*100:.1f}% complete)", 
+            title="Lorenz Attractor", 
             height=560, 
             margin=dict(l=0, r=0, b=0, t=30),
             showlegend=True
         )
         
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Progress bar
-        st.progress(progress)
-        
-        # Continue animation
-        if st.session_state.lorenz_animation_step <= st.session_state.lorenz_num_points:
-            time.sleep(0.01)  # Small delay to control speed
-            st.rerun()
-    
-    # Show final plot if animation is complete
-    elif st.session_state.lorenz_traj_data is not None:
-        traj_data = st.session_state.lorenz_traj_data
-        fig = go.Figure()
-        colors = ["blue", "red"]
-        
-        for j, data in enumerate(traj_data):
-            if view == "3D Attractor":
-                fig.add_trace(go.Scatter3d(
-                    x=data[0], y=data[1], z=data[2], 
-                    mode="lines", 
-                    line=dict(color=colors[j % len(colors)], width=2),
-                    name=f"Trajectory {j+1}"
-                ))
-                fig.update_layout(
-                    scene=dict(
-                        xaxis_title="X", yaxis_title="Y", zaxis_title="Z",
-                        camera=dict(eye=dict(x=1.5, y=1.5, z=1.5))
-                    )
-                )
-            elif view == "2D Projection (x–y)":
-                fig.add_trace(go.Scatter(
-                    x=data[0], y=data[1], 
-                    mode="lines", 
-                    line=dict(color=colors[j % len(colors)], width=2),
-                    name=f"Trajectory {j+1}"
-                ))
-                fig.update_layout(xaxis_title="X", yaxis_title="Y")
-            elif view == "2D Projection (x–z)":
-                fig.add_trace(go.Scatter(
-                    x=data[0], y=data[2], 
-                    mode="lines", 
-                    line=dict(color=colors[j % len(colors)], width=2),
-                    name=f"Trajectory {j+1}"
-                ))
-                fig.update_layout(xaxis_title="X", yaxis_title="Z")
-            else:  # y-z projection
-                fig.add_trace(go.Scatter(
-                    x=data[1], y=data[2], 
-                    mode="lines", 
-                    line=dict(color=colors[j % len(colors)], width=2),
-                    name=f"Trajectory {j+1}"
-                ))
-                fig.update_layout(xaxis_title="Y", yaxis_title="Z")
-
-        fig.update_layout(
-            title="Lorenz Attractor (Complete)", 
-            height=560, 
-            margin=dict(l=0, r=0, b=0, t=30),
-            showlegend=True
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
+        plot_placeholder.plotly_chart(fig, use_container_width=True)
 
     # Metrics
+    st.write("---")
     m1, m2, m3 = st.columns(3)
     with m1:
         st.metric("σ (Prandtl)", f"{sigma:.2f}")
@@ -312,10 +412,10 @@ with tabs[1]:
         st.metric("β", f"{beta:.3f}")
 
     # Downloads - only show if trajectory data exists
-    if st.session_state.lorenz_traj_data is not None and enable_downloads:
+    if st.session_state.lorenz_traj_data_final is not None and enable_downloads:
         st.write("### Download Options")
         
-        traj_data = st.session_state.lorenz_traj_data
+        traj_data = st.session_state.lorenz_traj_data_final
         
         # CSV downloads
         col1, col2 = st.columns(2)
@@ -334,6 +434,7 @@ with tabs[1]:
                     mime="text/csv",
                     key=f"lorenz_csv_download_{j}"
                 )
+        
         # Create final figure for downloads
         fig_final = go.Figure()
         colors = ["blue", "red"]
@@ -369,7 +470,7 @@ with tabs[1]:
             data=html_buf.getvalue().encode(),
             file_name="lorenz_plot.html",
             mime="text/html",
-            key="html_download"
+            key="html_download_lorenz"
         )
 
         # Static PNG (requires 'kaleido' in requirements)
@@ -380,7 +481,7 @@ with tabs[1]:
                 data=png_bytes,
                 file_name="lorenz_plot.png",
                 mime="image/png",
-                key="png_download"
+                key="png_download_lorenz"
             )
         except Exception:
             st.info("To enable PNG export, add **kaleido** to requirements.txt.")
@@ -411,7 +512,7 @@ with tabs[1]:
             - **Phase-space volume contraction:** $\nabla\cdot f = -(\sigma + 1 + \beta) < 0$ — trajectories are attracted to a lower-dimensional set (the strange attractor).
 
             ### 📈 Sensitive Dependence
-            Nearby trajectories $\delta \mathbf{x}(t)$ grow as $\|\delta \mathbf{x}(t)\|\sim e^{\lambda t}$ with positive largest Lyapunov exponent $\lambda$ (quantified in your Lyapunov tab).
+            Nearby trajectories $\delta \mathbf{x}(t)$ grow as $\|\delta \mathbf{x}(t)\|\sim e^{\lambda t}$ with positive largest Lyapunov exponent $\lambda$.
 
             ### 🌍 Applications & Uses
             - Conceptual model for **weather/climate predictability limits**.
