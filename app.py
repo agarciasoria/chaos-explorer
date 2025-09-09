@@ -157,6 +157,7 @@ with tabs[1]:
             st.session_state.lorenz_traj_data_final = traj_data
 
         # Create animation or static plot
+                # Create animation or static plot
         if generate_animation:
             st.info("🎬 Animation ready! Use the controls below to play/pause.")
             
@@ -169,20 +170,21 @@ with tabs[1]:
             
             for k in range(0, len(traj_data[0][0]), step_size):
                 frame_data = []
-                for j, data in enumerate(traj_data):
-                    if view == "3D Attractor":
-                        # Add trajectory line
+                
+                if view == "3D Attractor":
+                    # Add all trajectory lines for this frame
+                    for j, data in enumerate(traj_data):
                         frame_data.append(go.Scatter3d(
                             x=data[0][:k+1], 
                             y=data[1][:k+1], 
                             z=data[2][:k+1],
                             mode='lines',
                             line=dict(color=colors[j % len(colors)], width=2),
-                            name=f'Trajectory {j+1}',
-                            showlegend=(k == 0)
+                            name=f'Trajectory {j+1}'
                         ))
-                        # Add current position marker
-                        if k > 0:
+                    # Add position markers for all trajectories
+                    if k > 0:
+                        for j, data in enumerate(traj_data):
                             frame_data.append(go.Scatter3d(
                                 x=[data[0][k]], 
                                 y=[data[1][k]], 
@@ -192,16 +194,17 @@ with tabs[1]:
                                 name=f'Position {j+1}',
                                 showlegend=False
                             ))
-                    elif view == "2D Projection (x–y)":
+                elif view == "2D Projection (x–y)":
+                    for j, data in enumerate(traj_data):
                         frame_data.append(go.Scatter(
                             x=data[0][:k+1], 
                             y=data[1][:k+1],
                             mode='lines',
                             line=dict(color=colors[j % len(colors)], width=2),
-                            name=f'Trajectory {j+1}',
-                            showlegend=(k == 0)
+                            name=f'Trajectory {j+1}'
                         ))
-                        if k > 0:
+                    if k > 0:
+                        for j, data in enumerate(traj_data):
                             frame_data.append(go.Scatter(
                                 x=[data[0][k]], 
                                 y=[data[1][k]],
@@ -209,16 +212,17 @@ with tabs[1]:
                                 marker=dict(color=colors[j % len(colors)], size=10),
                                 showlegend=False
                             ))
-                    elif view == "2D Projection (x–z)":
+                elif view == "2D Projection (x–z)":
+                    for j, data in enumerate(traj_data):
                         frame_data.append(go.Scatter(
                             x=data[0][:k+1], 
                             y=data[2][:k+1],
                             mode='lines',
                             line=dict(color=colors[j % len(colors)], width=2),
-                            name=f'Trajectory {j+1}',
-                            showlegend=(k == 0)
+                            name=f'Trajectory {j+1}'
                         ))
-                        if k > 0:
+                    if k > 0:
+                        for j, data in enumerate(traj_data):
                             frame_data.append(go.Scatter(
                                 x=[data[0][k]], 
                                 y=[data[2][k]],
@@ -226,16 +230,17 @@ with tabs[1]:
                                 marker=dict(color=colors[j % len(colors)], size=10),
                                 showlegend=False
                             ))
-                    else:  # y-z projection
+                else:  # y-z projection
+                    for j, data in enumerate(traj_data):
                         frame_data.append(go.Scatter(
                             x=data[1][:k+1], 
                             y=data[2][:k+1],
                             mode='lines',
                             line=dict(color=colors[j % len(colors)], width=2),
-                            name=f'Trajectory {j+1}',
-                            showlegend=(k == 0)
+                            name=f'Trajectory {j+1}'
                         ))
-                        if k > 0:
+                    if k > 0:
+                        for j, data in enumerate(traj_data):
                             frame_data.append(go.Scatter(
                                 x=[data[1][k]], 
                                 y=[data[2][k]],
@@ -244,11 +249,17 @@ with tabs[1]:
                                 showlegend=False
                             ))
                 
-                frames.append(go.Frame(data=frame_data, name=str(k)))
+                frames.append(go.Frame(
+                    data=frame_data, 
+                    name=str(k),
+                    traces=list(range(len(frame_data)))  # Important: specify which traces to update
+                ))
 
-            # Create figure with animation
+            # Create the initial figure with the first frame's data
+            initial_data = frames[0].data if frames else []
+            
             fig = go.Figure(
-                data=frames[0].data if frames else [],
+                data=initial_data,
                 frames=frames
             )
 
@@ -257,7 +268,8 @@ with tabs[1]:
                 fig.update_layout(
                     scene=dict(
                         xaxis_title="X", yaxis_title="Y", zaxis_title="Z",
-                        camera=dict(eye=dict(x=1.5, y=1.5, z=1.5))
+                        camera=dict(eye=dict(x=1.5, y=1.5, z=1.5)),
+                        aspectmode='auto'
                     ),
                     height=600
                 )
@@ -270,26 +282,31 @@ with tabs[1]:
                 fig.update_layout(
                     xaxis_title=axis_titles[view][0],
                     yaxis_title=axis_titles[view][1],
-                    height=600
+                    height=600,
+                    xaxis=dict(autorange=True),
+                    yaxis=dict(autorange=True)
                 )
 
-            # Add animation controls
+            # Add animation controls with improved settings
             fig.update_layout(
                 title="Lorenz Attractor Animation",
+                showlegend=True,
                 updatemenus=[{
                     'type': 'buttons',
                     'showactive': False,
-                    'y': 0,
-                    'x': 0.1,
-                    'xanchor': 'right',
-                    'yanchor': 'bottom',
+                    'y': 1.0,
+                    'x': 0.0,
+                    'xanchor': 'left',
+                    'yanchor': 'top',
+                    'pad': {'r': 10, 't': 10},
                     'buttons': [
                         {
                             'label': '▶️ Play',
                             'method': 'animate',
                             'args': [None, {
-                                'frame': {'duration': 50, 'redraw': True},
+                                'frame': {'duration': 30, 'redraw': True},
                                 'fromcurrent': True,
+                                'mode': 'immediate',
                                 'transition': {'duration': 0}
                             }]
                         },
@@ -298,8 +315,7 @@ with tabs[1]:
                             'method': 'animate',
                             'args': [[None], {
                                 'frame': {'duration': 0, 'redraw': False},
-                                'mode': 'immediate',
-                                'transition': {'duration': 0}
+                                'mode': 'immediate'
                             }]
                         }
                     ]
@@ -307,31 +323,28 @@ with tabs[1]:
                 sliders=[{
                     'active': 0,
                     'steps': [{
-                        'label': f'{i}',
+                        'label': f't={i*step_size*dt:.1f}',
                         'method': 'animate',
-                        'args': [[f'{i*step_size}'], {
+                        'args': [[str(i*step_size)], {
                             'frame': {'duration': 0, 'redraw': True},
-                            'mode': 'immediate',
-                            'transition': {'duration': 0}
+                            'mode': 'immediate'
                         }]
-                    } for i in range(len(frames))],
-                    'y': 0,
+                    } for i in range(min(len(frames), animation_frames))],
                     'len': 0.9,
-                    'x': 0.1,
+                    'x': 0.05,
                     'xanchor': 'left',
-                    'y': -0.1,
+                    'y': -0.05,
                     'yanchor': 'top',
-                    'transition': {'duration': 0},
                     'currentvalue': {
                         'font': {'size': 12},
-                        'prefix': 'Frame: ',
+                        'prefix': 'Time: ',
                         'visible': True,
-                        'xanchor': 'right'
+                        'xanchor': 'left'
                     }
                 }]
             )
 
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True})
 
         else:  # Static plot
             # Create static figure
