@@ -46,127 +46,550 @@ tabs = st.tabs([
 ])
 
 # ============================================
-# TAB 1: DOUBLE PENDULUM
+# TAB 1: DOUBLE PENDULUM WITH ANIMATIONS
 # ============================================
-with tabs[0]:
+with tabs[2]:
     st.header("Double Pendulum")
-
-    # Parameters
-    st.sidebar.subheader("Double Pendulum Parameters")
-    m1 = st.sidebar.slider("Mass m1", 0.1, 5.0, 1.0, 0.1)
-    m2 = st.sidebar.slider("Mass m2", 0.1, 5.0, 1.0, 0.1)
-    L1 = st.sidebar.slider("Length L1", 0.1, 5.0, 1.0, 0.1)
-    L2 = st.sidebar.slider("Length L2", 0.1, 5.0, 1.0, 0.1)
-    g = st.sidebar.slider("Gravity g", 1.0, 20.0, 9.81, 0.1)
+    st.write("Experience chaos in mechanical systems through the mesmerizing double pendulum")
+    
+    #------- Controls ------------------
+    col1, col2, col3 = st.columns([1,1,1])
+    with col1:
+        m1 = st.slider("m₁ (mass 1)", 0.1, 5.0, 1.0, 0.1)
+        L1 = st.slider("L₁ (length 1)", 0.5, 2.0, 1.0, 0.1)
+    with col2:
+        m2 = st.slider("m₂ (mass 2)", 0.1, 5.0, 1.0, 0.1)
+        L2 = st.slider("L₂ (length 2)", 0.5, 2.0, 1.0, 0.1)
+    with col3:
+        g = st.slider("g (gravity)", 1.0, 20.0, 9.81, 0.1)
+        damping = st.slider("Damping", 0.0, 0.5, 0.0, 0.01)
 
     # Initial conditions
-    st.sidebar.subheader("Initial Conditions")
-    theta1_0 = st.sidebar.slider("θ1 (radians)", -3.14, 3.14, 1.0, 0.01)
-    theta2_0 = st.sidebar.slider("θ2 (radians)", -3.14, 3.14, -1.0, 0.01)
-    omega1_0 = st.sidebar.slider("ω1", -10.0, 10.0, 0.0, 0.1)
-    omega2_0 = st.sidebar.slider("ω2", -10.0, 10.0, 0.0, 0.1)
+    st.write("### Initial Conditions")
+    colA, colB, colC, colD = st.columns(4)
+    with colA:
+        theta1_0 = st.slider("θ₁ (deg)", -180.0, 180.0, 90.0, 1.0)
+        theta1_0_rad = np.deg2rad(theta1_0)
+    with colB:
+        theta2_0 = st.slider("θ₂ (deg)", -180.0, 180.0, 45.0, 1.0)
+        theta2_0_rad = np.deg2rad(theta2_0)
+    with colC:
+        omega1_0 = st.slider("ω₁ (rad/s)", -10.0, 10.0, 0.0, 0.1)
+    with colD:
+        omega2_0 = st.slider("ω₂ (rad/s)", -10.0, 10.0, 0.0, 0.1)
 
-    # Simulation settings
-    st.sidebar.subheader("Simulation Settings")
-    T = st.sidebar.slider("Total Time", 1.0, 50.0, 20.0, 1.0)
-    dt = st.sidebar.slider("Time Step", 0.001, 0.1, 0.02, 0.001)
+    colT1, colT2 = st.columns(2)
+    with colT1:
+        t_max_dp = st.slider("Simulation Time", 5.0, 100.0, 30.0, 1.0)
+    with colT2:
+        dt_dp = st.slider("Time Step (Δt)", 0.001, 0.05, 0.01, 0.001)
 
-    show_anim = st.sidebar.checkbox("Animate", value=True)
-    show_eq = st.sidebar.checkbox("Show Equations", value=False)
+    # ------------------ Options ------------------
+    colO1, colO2, colO3 = st.columns(3)
+    with colO1:
+        show_equations_dp = st.checkbox("Show equations", True, key="dp_eq")
+    with colO2:
+        enable_downloads_dp = st.checkbox("Enable downloads", True, key="dp_dl")
+    with colO3:
+        animation_frames_dp = st.slider("Animation frames", 50, 200, 100, key="dp_frames")
 
-    # Equations of motion
-    def derivatives(state, t):
+    # Second pendulum for comparison
+    show_second_dp = st.checkbox("Compare two nearby initial conditions", False)
+    if show_second_dp:
+        perturb_dp = st.slider("Initial angle perturbation δ (deg)", 0.01, 10.0, 1.0, 0.01)
+        perturb_dp_rad = np.deg2rad(perturb_dp)
+
+    # ------------------ Equations ------------------
+    if show_equations_dp:
+        st.markdown("### 📐 Mathematical Description")
+        st.markdown("""
+        The double pendulum follows Lagrangian mechanics. The equations of motion are:
+        """)
+        st.latex(r"\ddot{\theta}_1 = \frac{-g(2m_1+m_2)\sin\theta_1 - m_2g\sin(\theta_1-2\theta_2) - 2\sin(\theta_1-\theta_2)m_2(\dot{\theta}_2^2L_2 + \dot{\theta}_1^2L_1\cos(\theta_1-\theta_2))}{L_1(2m_1+m_2-m_2\cos(2\theta_1-2\theta_2))}")
+        st.latex(r"\ddot{\theta}_2 = \frac{2\sin(\theta_1-\theta_2)(\dot{\theta}_1^2L_1(m_1+m_2) + g(m_1+m_2)\cos\theta_1 + \dot{\theta}_2^2L_2m_2\cos(\theta_1-\theta_2))}{L_2(2m_1+m_2-m_2\cos(2\theta_1-2\theta_2))}")
+        st.markdown("""
+        - **θ₁, θ₂**: Angles from vertical
+        - **ω₁, ω₂**: Angular velocities
+        - **m₁, m₂**: Masses of pendulum bobs
+        - **L₁, L₂**: Lengths of pendulum arms
+        """)
+
+    # View selection
+    view_dp = st.radio("Select View", 
+                       ["Full Motion", "Phase Space (θ₁-ω₁)", "Phase Space (θ₂-ω₂)", 
+                        "Configuration Space (θ₁-θ₂)", "Energy Evolution"], 
+                       horizontal=True)
+    
+    # Animation controls
+    col1_dp, col2_dp = st.columns(2)
+    with col1_dp:
+        generate_animation_dp = st.button("🎬 Generate Animation", type="primary", key="dp_anim")
+    with col2_dp:
+        generate_static_dp = st.button("📊 Generate Static Plot", key="dp_static")
+    
+    # Speed control
+    animation_speed_dp = st.slider("Animation Speed (ms per frame)", 
+                                  min_value=10, 
+                                  max_value=200, 
+                                  value=50, 
+                                  step=10,
+                                  help="Lower values = faster animation",
+                                  key="dp_speed")
+
+    # Define double pendulum dynamics
+    def double_pendulum_derivatives(state, t, m1, m2, L1, L2, g, damping):
         theta1, omega1, theta2, omega2 = state
-        delta = theta2 - theta1
+        
+        # Precompute trig values
+        sin1 = np.sin(theta1)
+        sin2 = np.sin(theta2)
+        sin12 = np.sin(theta1 - theta2)
+        cos12 = np.cos(theta1 - theta2)
+        
+        # Denominator
+        den = 2*m1 + m2 - m2*np.cos(2*theta1 - 2*theta2)
+        
+        # Angular accelerations
+        num1 = (-g*(2*m1 + m2)*sin1 - m2*g*np.sin(theta1 - 2*theta2) - 
+                2*sin12*m2*(omega2**2*L2 + omega1**2*L1*cos12))
+        alpha1 = num1 / (L1 * den) - damping*omega1
+        
+        num2 = (2*sin12*(omega1**2*L1*(m1 + m2) + g*(m1 + m2)*np.cos(theta1) + 
+                omega2**2*L2*m2*cos12))
+        alpha2 = num2 / (L2 * den) - damping*omega2
+        
+        return np.array([omega1, alpha1, omega2, alpha2])
 
-        den1 = (m1 + m2) * L1 - m2 * L1 * np.cos(delta)**2
-        den2 = (L2 / L1) * den1
+    if generate_animation_dp or generate_static_dp:
+        with st.spinner("Computing double pendulum dynamics..."):
+            # Initialize pendulums
+            initial_states = [[theta1_0_rad, omega1_0, theta2_0_rad, omega2_0]]
+            if show_second_dp:
+                initial_states.append([theta1_0_rad + perturb_dp_rad, omega1_0, 
+                                     theta2_0_rad + perturb_dp_rad, omega2_0])
+            
+            num_points = int(t_max_dp/dt_dp)
+            time_points = np.linspace(0, t_max_dp, num_points)
+            
+            # Storage for trajectories
+            trajectories = []
+            for initial_state in initial_states:
+                trajectory = [initial_state]
+                state = np.array(initial_state)
+                
+                # RK4 integration
+                for i in range(1, num_points):
+                    k1 = double_pendulum_derivatives(state, time_points[i], m1, m2, L1, L2, g, damping)
+                    k2 = double_pendulum_derivatives(state + 0.5*dt_dp*k1, time_points[i], m1, m2, L1, L2, g, damping)
+                    k3 = double_pendulum_derivatives(state + 0.5*dt_dp*k2, time_points[i], m1, m2, L1, L2, g, damping)
+                    k4 = double_pendulum_derivatives(state + dt_dp*k3, time_points[i], m1, m2, L1, L2, g, damping)
+                    
+                    state = state + (dt_dp/6) * (k1 + 2*k2 + 2*k3 + k4)
+                    trajectory.append(state.copy())
+                
+                trajectories.append(np.array(trajectory))
+            
+            # Convert to Cartesian coordinates for visualization
+            cartesian_trajs = []
+            for traj in trajectories:
+                x1 = L1 * np.sin(traj[:, 0])
+                y1 = -L1 * np.cos(traj[:, 0])
+                x2 = x1 + L2 * np.sin(traj[:, 2])
+                y2 = y1 - L2 * np.cos(traj[:, 2])
+                cartesian_trajs.append({'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2})
+            
+            # Calculate energies
+            energies = []
+            for traj in trajectories:
+                KE1 = 0.5 * m1 * (L1 * traj[:, 1])**2
+                KE2 = 0.5 * m2 * ((L1 * traj[:, 1])**2 + (L2 * traj[:, 3])**2 + 
+                                  2 * L1 * L2 * traj[:, 1] * traj[:, 3] * np.cos(traj[:, 0] - traj[:, 2]))
+                PE1 = m1 * g * L1 * (1 - np.cos(traj[:, 0]))
+                PE2 = m2 * g * (L1 * (1 - np.cos(traj[:, 0])) + L2 * (1 - np.cos(traj[:, 2])))
+                total_energy = KE1 + KE2 + PE1 + PE2
+                energies.append(total_energy)
+            
+            st.session_state.dp_trajectories = trajectories
+            st.session_state.dp_cartesian = cartesian_trajs
+            st.session_state.dp_energies = energies
+            st.session_state.dp_time = time_points
 
-        domega1 = ((m2 * L1 * omega1**2 * np.sin(delta) * np.cos(delta) +
-                    m2 * g * np.sin(theta2) * np.cos(delta) +
-                    m2 * L2 * omega2**2 * np.sin(delta) -
-                    (m1 + m2) * g * np.sin(theta1)) / den1)
+        # Create animation or static plot
+        if generate_animation_dp:
+            st.info("🎬 Animation ready! Use the controls below to play/pause.")
+            
+            # Create frames
+            frames = []
+            colors = ["blue", "red"]
+            
+            # Calculate step size for frames
+            step_size = max(1, num_points // animation_frames_dp)
+            
+            # Create frames based on view
+            for k in range(0, num_points, step_size):
+                frame_data = []
+                
+                if view_dp == "Full Motion":
+                    for j, (traj, cart) in enumerate(zip(trajectories, cartesian_trajs)):
+                        # Pendulum arms
+                        frame_data.append(go.Scatter(
+                            x=[0, cart['x1'][k], cart['x2'][k]], 
+                            y=[0, cart['y1'][k], cart['y2'][k]],
+                            mode='lines+markers',
+                            line=dict(color=colors[j % len(colors)], width=3),
+                            marker=dict(size=[8, 10, 10]),
+                                                        name=f'Pendulum {j+1}'
+                        ))
+                        # Trail
+                        if k > 10:
+                            trail_start = max(0, k - 50)
+                            frame_data.append(go.Scatter(
+                                x=cart['x2'][trail_start:k+1], 
+                                y=cart['y2'][trail_start:k+1],
+                                mode='lines',
+                                line=dict(color=colors[j % len(colors)], width=1, opacity=0.3),
+                                showlegend=False,
+                                name=f'Trail {j+1}'
+                            ))
+                
+                elif view_dp == "Phase Space (θ₁-ω₁)":
+                    for j, traj in enumerate(trajectories):
+                        frame_data.append(go.Scatter(
+                            x=np.rad2deg(traj[:k+1, 0]), 
+                            y=traj[:k+1, 1],
+                            mode='lines',
+                            line=dict(color=colors[j % len(colors)], width=2),
+                            name=f'Pendulum {j+1}'
+                        ))
+                        if k > 0:
+                            frame_data.append(go.Scatter(
+                                x=[np.rad2deg(traj[k, 0])], 
+                                y=[traj[k, 1]],
+                                mode='markers',
+                                marker=dict(color=colors[j % len(colors)], size=10),
+                                showlegend=False
+                            ))
+                
+                elif view_dp == "Phase Space (θ₂-ω₂)":
+                    for j, traj in enumerate(trajectories):
+                        frame_data.append(go.Scatter(
+                            x=np.rad2deg(traj[:k+1, 2]), 
+                            y=traj[:k+1, 3],
+                            mode='lines',
+                            line=dict(color=colors[j % len(colors)], width=2),
+                            name=f'Pendulum {j+1}'
+                        ))
+                        if k > 0:
+                            frame_data.append(go.Scatter(
+                                x=[np.rad2deg(traj[k, 2])], 
+                                y=[traj[k, 3]],
+                                mode='markers',
+                                marker=dict(color=colors[j % len(colors)], size=10),
+                                showlegend=False
+                            ))
+                
+                elif view_dp == "Configuration Space (θ₁-θ₂)":
+                    for j, traj in enumerate(trajectories):
+                        frame_data.append(go.Scatter(
+                            x=np.rad2deg(traj[:k+1, 0]), 
+                            y=np.rad2deg(traj[:k+1, 2]),
+                            mode='lines',
+                            line=dict(color=colors[j % len(colors)], width=2),
+                            name=f'Pendulum {j+1}'
+                        ))
+                        if k > 0:
+                            frame_data.append(go.Scatter(
+                                x=[np.rad2deg(traj[k, 0])], 
+                                y=[np.rad2deg(traj[k, 2])],
+                                mode='markers',
+                                marker=dict(color=colors[j % len(colors)], size=10),
+                                showlegend=False
+                            ))
+                
+                else:  # Energy Evolution
+                    for j, energy in enumerate(energies):
+                        frame_data.append(go.Scatter(
+                            x=time_points[:k+1], 
+                            y=energy[:k+1],
+                            mode='lines',
+                            line=dict(color=colors[j % len(colors)], width=2),
+                            name=f'Pendulum {j+1} Energy'
+                        ))
+                
+                frames.append(go.Frame(data=frame_data, name=str(k)))
 
-        domega2 = ((-m2 * L2 * omega2**2 * np.sin(delta) * np.cos(delta) +
-                    (m1 + m2) * g * np.sin(theta1) * np.cos(delta) -
-                    (m1 + m2) * L1 * omega1**2 * np.sin(delta) -
-                    (m1 + m2) * g * np.sin(theta2)) / den2)
+            # Create figure with first frame as initial data
+            if frames:
+                fig = go.Figure(
+                    data=frames[0].data,
+                    frames=frames
+                )
+            else:
+                fig = go.Figure()
 
-        return np.array([omega1, domega1, omega2, domega2])
+            # Update layout based on view
+            if view_dp == "Full Motion":
+                max_range = 1.1 * (L1 + L2)
+                fig.update_layout(
+                    xaxis=dict(range=[-max_range, max_range], title="x"),
+                    yaxis=dict(range=[-max_range, 0.5], title="y"),
+                    aspectratio=dict(x=1, y=1),
+                    height=600
+                )
+            elif view_dp == "Phase Space (θ₁-ω₁)":
+                fig.update_layout(
+                    xaxis_title="θ₁ (degrees)",
+                    yaxis_title="ω₁ (rad/s)",
+                    height=600
+                )
+            elif view_dp == "Phase Space (θ₂-ω₂)":
+                fig.update_layout(
+                    xaxis_title="θ₂ (degrees)",
+                    yaxis_title="ω₂ (rad/s)",
+                    height=600
+                )
+            elif view_dp == "Configuration Space (θ₁-θ₂)":
+                fig.update_layout(
+                    xaxis_title="θ₁ (degrees)",
+                    yaxis_title="θ₂ (degrees)",
+                    height=600
+                )
+            else:  # Energy Evolution
+                fig.update_layout(
+                    xaxis_title="Time (s)",
+                    yaxis_title="Total Energy (J)",
+                    height=600
+                )
 
-    # Time array
-    t = np.arange(0, T, dt)
+            # Add animation controls
+            fig.update_layout(
+                title="Double Pendulum Animation",
+                showlegend=True,
+                updatemenus=[{
+                    'type': 'buttons',
+                    'showactive': False,
+                    'y': 1.15,
+                    'x': 0.0,
+                    'xanchor': 'left',
+                    'yanchor': 'top',
+                    'buttons': [
+                        {
+                            'label': '▶️ Play',
+                            'method': 'animate',
+                            'args': [None, {
+                                'frame': {'duration': animation_speed_dp, 'redraw': True},
+                                'fromcurrent': True,
+                                'mode': 'immediate',
+                                'transition': {'duration': 0}
+                            }]
+                        },
+                        {
+                            'label': '⏸️ Pause',
+                            'method': 'animate',
+                            'args': [[None], {
+                                'frame': {'duration': 0, 'redraw': False},
+                                'mode': 'immediate'
+                            }]
+                        },
+                        {
+                            'label': '⏮️ Reset',
+                            'method': 'animate',
+                            'args': [[str(0)], {
+                                'frame': {'duration': 0, 'redraw': True},
+                                'mode': 'immediate'
+                            }]
+                        }
+                    ]
+                }],
+                sliders=[{
+                    'active': 0,
+                    'steps': [{
+                        'label': f't={i*step_size*dt_dp:.2f}s',
+                        'method': 'animate',
+                        'args': [[str(i*step_size)], {
+                            'frame': {'duration': 0, 'redraw': True},
+                            'mode': 'immediate'
+                        }]
+                    } for i in range(len(frames))],
+                    'len': 0.9,
+                    'x': 0.05,
+                    'xanchor': 'left',
+                    'y': 0,
+                    'yanchor': 'top',
+                    'currentvalue': {
+                        'font': {'size': 12},
+                        'prefix': 'Time: ',
+                        'visible': True,
+                        'xanchor': 'left'
+                    }
+                }]
+            )
 
-    # RK4 integrator
-    def rk4_step(f, y, t, dt):
-        k1 = f(y, t)
-        k2 = f(y + 0.5 * dt * k1, t + 0.5 * dt)
-        k3 = f(y + 0.5 * dt * k2, t + 0.5 * dt)
-        k4 = f(y + dt * k3, t + dt)
-        return y + (dt/6) * (k1 + 2*k2 + 2*k3 + k4)
+            st.plotly_chart(fig, use_container_width=True)
 
-    # Integrate trajectory
-    state = np.array([theta1_0, omega1_0, theta2_0, omega2_0])
-    trajectory = []
-    for ti in t:
-        trajectory.append(state)
-        state = rk4_step(derivatives, state, ti, dt)
-    trajectory = np.array(trajectory)
+        else:  # Static plot
+            # Create static figure
+            fig = go.Figure()
+            colors = ["blue", "red"]
+            
+            if view_dp == "Full Motion":
+                # Show final position and full trail
+                for j, (traj, cart) in enumerate(zip(trajectories, cartesian_trajs)):
+                    # Trail
+                    fig.add_trace(go.Scatter(
+                        x=cart['x2'], 
+                        y=cart['y2'],
+                        mode='lines',
+                        line=dict(color=colors[j % len(colors)], width=1, opacity=0.3),
+                        name=f'Trail {j+1}'
+                    ))
+                    # Final pendulum position
+                    fig.add_trace(go.Scatter(
+                        x=[0, cart['x1'][-1], cart['x2'][-1]], 
+                        y=[0, cart['y1'][-1], cart['y2'][-1]],
+                        mode='lines+markers',
+                        line=dict(color=colors[j % len(colors)], width=3),
+                        marker=dict(size=[8, 10, 10]),
+                        name=f'Pendulum {j+1}'
+                    ))
+                max_range = 1.1 * (L1 + L2)
+                fig.update_layout(
+                    xaxis=dict(range=[-max_range, max_range], title="x"),
+                    yaxis=dict(range=[-max_range, 0.5], title="y"),
+                    aspectratio=dict(x=1, y=1),
+                    height=600
+                )
+            
+            elif view_dp == "Phase Space (θ₁-ω₁)":
+                for j, traj in enumerate(trajectories):
+                    fig.add_trace(go.Scatter(
+                        x=np.rad2deg(traj[:, 0]), 
+                        y=traj[:, 1],
+                        mode='lines',
+                        line=dict(color=colors[j % len(colors)], width=2),
+                        name=f'Pendulum {j+1}'
+                    ))
+                fig.update_layout(xaxis_title="θ₁ (degrees)", yaxis_title="ω₁ (rad/s)", height=600)
+            
+            elif view_dp == "Phase Space (θ₂-ω₂)":
+                for j, traj in enumerate(trajectories):
+                    fig.add_trace(go.Scatter(
+                        x=np.rad2deg(traj[:, 2]), 
+                        y=traj[:, 3],
+                        mode='lines',
+                        line=dict(color=colors[j % len(colors)], width=2),
+                        name=f'Pendulum {j+1}'
+                    ))
+                fig.update_layout(xaxis_title="θ₂ (degrees)", yaxis_title="ω₂ (rad/s)", height=600)
+            
+            elif view_dp == "Configuration Space (θ₁-θ₂)":
+                for j, traj in enumerate(trajectories):
+                    fig.add_trace(go.Scatter(
+                        x=np.rad2deg(traj[:, 0]), 
+                        y=np.rad2deg(traj[:, 2]),
+                        mode='lines',
+                        line=dict(color=colors[j % len(colors)], width=2),
+                        name=f'Pendulum {j+1}'
+                    ))
+                fig.update_layout(xaxis_title="θ₁ (degrees)", yaxis_title="θ₂ (degrees)", height=600)
+            
+            else:  # Energy Evolution
+                for j, energy in enumerate(energies):
+                    fig.add_trace(go.Scatter(
+                        x=time_points, 
+                        y=energy,
+                        mode='lines',
+                        line=dict(color=colors[j % len(colors)], width=2),
+                        name=f'Pendulum {j+1} Energy'
+                    ))
+                fig.update_layout(xaxis_title="Time (s)", yaxis_title="Total Energy (J)", height=600)
+            
+            fig.update_layout(
+                title="Double Pendulum", 
+                showlegend=True,
+                margin=dict(l=0, r=0, b=0, t=30)
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
 
-    # Convert to cartesian coords
-    theta1, omega1, theta2, omega2 = trajectory.T
-    x1 = L1 * np.sin(theta1)
-    y1 = -L1 * np.cos(theta1)
-    x2 = x1 + L2 * np.sin(theta2)
-    y2 = y1 - L2 * np.cos(theta2)
-
-    # Plot
-    fig, ax = plt.subplots(figsize=(6, 6))
-    if show_anim:
-        def update(frame):
-            ax.clear()
-            ax.plot([0, x1[frame], x2[frame]], [0, y1[frame], y2[frame]], "o-", lw=2)
-            ax.set_xlim(-L1 - L2 - 0.5, L1 + L2 + 0.5)
-            ax.set_ylim(-L1 - L2 - 0.5, L1 + L2 + 0.5)
-            ax.set_title(f"t = {t[frame]:.2f}")
-        ani = FuncAnimation(fig, update, frames=len(t), interval=30, blit=False)
-        st.pyplot(fig)
+    # Show existing plot if available
+    elif 'dp_trajectories' in st.session_state and st.session_state.dp_trajectories is not None:
+        trajectories = st.session_state.dp_trajectories
+        cartesian_trajs = st.session_state.dp_cartesian
+        energies = st.session_state.dp_energies
+        time_points = st.session_state.dp_time
+        
+        fig = go.Figure()
+        colors = ["blue", "red"]
+        
+        # [Same static plot code as above]
+        if view_dp == "Full Motion":
+            for j, (traj, cart) in enumerate(zip(trajectories, cartesian_trajs)):
+                fig.add_trace(go.Scatter(
+                    x=cart['x2'], y=cart['y2'],
+                    mode='lines',
+                    line=dict(color=colors[j % len(colors)], width=1, opacity=0.3),
+                    name=f'Trail {j+1}'
+                ))
+                fig.add_trace(go.Scatter(
+                    x=[0, cart['x1'][-1], cart['x2'][-1]], 
+                    y=[0, cart['y1'][-1], cart['y2'][-1]],
+                    mode='lines+markers',
+                    line=dict(color=colors[j % len(colors)], width=3),
+                    marker=dict(size=[8, 10, 10]),
+                    name=f'Pendulum {j+1}'
+                ))
+            max_range = 1.1 * (L1 + L2)
+            fig.update_layout(
+                xaxis=dict(range=[-max_range, max_range], title="x"),
+                yaxis=dict(range=[-max_range, 0.5], title="y"),
+                aspectratio=dict(x=1, y=1),
+                height=600
+            )
+        elif view_dp == "Phase Space (θ₁-ω₁)":
+            for j, traj in enumerate(trajectories):
+                fig.add_trace(go.Scatter(
+                    x=np.rad2deg(traj[:, 0]), y=traj[:, 1],
+                    mode='lines',
+                    line=dict(color=colors[j % len(colors)], width=2),
+                    name=f'Pendulum {j+1}'
+                ))
+            fig.update_layout(xaxis_title="θ₁ (degrees)", yaxis_title="ω₁ (rad/s)", height=600)
+        elif view_dp == "Phase Space (θ₂-ω₂)":
+            for j, traj in enumerate(trajectories):
+                fig.add_trace(go.Scatter(
+                    x=np.rad2deg(traj[:, 2]), y=traj[:, 3],
+                    mode='lines',
+                    line=dict(color=colors[j % len(colors)], width=2),
+                    name=f'Pendulum {j+1}'
+                ))
+            fig.update_layout(xaxis_title="θ₂ (degrees)", yaxis_title="ω₂ (rad/s)", height=600)
+        elif view_dp == "Configuration Space (θ₁-θ₂)":
+            for j, traj in enumerate(trajectories):
+                fig.add_trace(go.Scatter(
+                    x=np.rad2deg(traj[:, 0]), y=np.rad2deg(traj[:, 2]),
+                    mode='lines',
+                    line=dict(color=colors[j % len(colors)], width=2),
+                    name=f'Pendulum {j+1}'
+                ))
+            fig.update_layout(xaxis_title="θ₁ (degrees)", yaxis_title="θ₂ (degrees)", height=600)
+        else:  # Energy Evolution
+            for j, energy in enumerate(energies):
+                fig.add_trace(go.Scatter(
+                    x=time_points, y=energy,
+                    mode='lines',
+                    line=dict(color=colors[j % len(colors)], width=2),
+                    name=f'Pendulum {j+1} Energy'
+                ))
+            fig.update_layout(xaxis_title="Time (s)", yaxis_title="Total Energy (J)", height=600)
+        
+        fig.update_layout(title="Double Pendulum", showlegend=True, margin=dict(l=0, r=0, b=0, t=30))
+        st.plotly_chart(fig, use_container_width=True)
+    
     else:
-        ax.plot(x2, y2, label="Mass 2 trajectory")
-        ax.set_aspect("equal")
-        ax.legend()
-        st.pyplot(fig)
+        st.info("👆 Click 'Generate Animation' or 'Generate Static Plot' to visualize the double pendulum")
 
-    # Download data
-    csv_data = "t,x1,y1,x2,y2\n" + "\n".join(
-        f"{ti},{x1i},{y1i},{x2i},{y2i}" for ti, x1i, y1i, x2i, y2i in zip(t, x1, y1, x2, y2)
-    )
-    st.download_button("Download Trajectory (CSV)", data=csv_data, file_name="double_pendulum.csv")
-
-    # Optional equations
-    if show_eq:
-        st.latex(r"""
-        \begin{aligned}
-        \dot{\theta}_1 &= \omega_1 \\
-        \dot{\theta}_2 &= \omega_2 \\
-        \dot{\omega}_1 &= \frac{m_2 L_1 \omega_1^2 \sin\delta \cos\delta + m_2 g \sin\theta_2 \cos\delta + m_2 L_2 \omega_2^2 \sin\delta - (m_1+m_2) g \sin\theta_1}{(m_1+m_2)L_1 - m_2 L_1 \cos^2\delta} \\
-        \dot{\omega}_2 &= \frac{-m_2 L_2 \omega_2^2 \sin\delta \cos\delta + (m_1+m_2)(g \sin\theta_1 \cos\delta - L_1 \omega_1^2 \sin\delta - g \sin\theta_2)}{(L_2/L_1)[(m_1+m_2)L_1 - m_2 L_1 \cos^2\delta]}
-        \end{aligned}
-        """)
-
-    # Theory section
-    with st.expander("Theory"):
-        st.markdown(r"""
-        The **double pendulum** is a classical example of a chaotic system, 
-        consisting of two pendulums attached end to end.  
-
-        - The equations of motion are derived using the **Lagrangian formalism**.  
-        - For small angles, the system behaves regularly, but for larger ones, it exhibits **chaotic dynamics**.  
-        - It is sensitive to initial conditions, making it a perfect playground for studying chaos in mechanics.  
-
-        In this simulation, you can vary the masses, lengths, and initial angles 
-        to explore different dynamical regimes.
-        """)
+    #
 
 
 # ============================================
