@@ -82,7 +82,7 @@ with tabs[2]:
     with colT1:
         t_max_dp = st.slider("Simulation Time", 5.0, 100.0, 30.0, 1.0)
     with colT2:
-        dt_dp = st.slider("Time Step (Δt)", 0.001, 0.05, 0.01, 0.001)
+        dt_dp = st.slider("Time Step (Δt)", 0.001, 0.05, 0.01, 0.001, key="dp_dt")
 
     # ------------------ Options ------------------
     colO1, colO2, colO3 = st.columns(3)
@@ -615,16 +615,16 @@ with tabs[1]:
     with colA:
         t_max = st.slider("Simulation Time (t_max)", 5.0, 120.0, 40.0, 1.0)
     with colB:
-        dt = st.slider("Time Step (Δt)", 0.001, 0.05, 0.01, 0.001)
+        dt = st.slider("Time Step (Δt)", 0.001, 0.05, 0.01, 0.001, key="lorenz_dt")
 
     # ------------------ Options ------------------
     colO1, colO2, colO3 = st.columns(3)
     with colO1:
-        show_equations = st.checkbox("Show equations", True)
+        show_equations = st.checkbox("Show equations", True, key="lorenz_eq")
     with colO2:
-        enable_downloads = st.checkbox("Enable downloads", True)
+        enable_downloads = st.checkbox("Enable downloads", True, key="lorenz_dl")
     with colO3:
-        animation_frames = st.slider("Animation frames", 50, 200, 100)
+        animation_frames = st.slider("Animation frames", 50, 200, 100, key="lorenz_frames")
 
     # Second trajectory
     show_second = st.checkbox("Compare two nearby trajectories", False)
@@ -659,11 +659,12 @@ with tabs[1]:
     
     # Add speed control slider
     animation_speed = st.slider("Animation Speed (ms per frame)", 
-                               min_value=10, 
-                               max_value=200, 
-                               value=50, 
-                               step=10,
-                               help="Lower values = faster animation")
+                           min_value=10, 
+                           max_value=200, 
+                           value=50, 
+                           step=10,
+                           help="Lower values = faster animation",
+                           key="lorenz_speed")
 
     if generate_animation or generate_static:
         with st.spinner("Computing Lorenz attractor..."):
