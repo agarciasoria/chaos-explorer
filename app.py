@@ -331,12 +331,13 @@ with tabs[0]:
             # Update layout based on view
             if view_dp == "Full Motion":
                 max_range = 1.1 * (L1 + L2)
-                fig.update_layout(
-                    xaxis=dict(range=[-max_range, max_range], title="x"),
-                    yaxis=dict(range=[-max_range, 0.5], title="y"),
-                    aspectratio=dict(x=1, y=1),
-                    height=600
-                )
+                if view_dp == "Full Motion":
+                    max_range = 1.1 * (L1 + L2)
+                    fig.update_layout(
+                        xaxis=dict(range=[-max_range, max_range], title="x", scaleanchor="y", scaleratio=1),
+                        yaxis=dict(range=[-max_range, 0.5], title="y"),
+                        height=600
+                    )
             elif view_dp == "Phase Space (θ₁-ω₁)":
                 fig.update_layout(
                     xaxis_title="θ₁ (degrees)",
@@ -456,9 +457,8 @@ with tabs[0]:
                     ))
                 max_range = 1.1 * (L1 + L2)
                 fig.update_layout(
-                    xaxis=dict(range=[-max_range, max_range], title="x"),
+                    xaxis=dict(range=[-max_range, max_range], title="x", scaleanchor="y", scaleratio=1),
                     yaxis=dict(range=[-max_range, 0.5], title="y"),
-                    aspectratio=dict(x=1, y=1),
                     height=600
                 )
             
@@ -543,9 +543,8 @@ with tabs[0]:
                 ))
             max_range = 1.1 * (L1 + L2)
             fig.update_layout(
-                xaxis=dict(range=[-max_range, max_range], title="x"),
+                xaxis=dict(range=[-max_range, max_range], title="x", scaleanchor="y", scaleratio=1),
                 yaxis=dict(range=[-max_range, 0.5], title="y"),
-                aspectratio=dict(x=1, y=1),
                 height=600
             )
         elif view_dp == "Phase Space (θ₁-ω₁)":
