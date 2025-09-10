@@ -225,13 +225,16 @@ with tabs[0]:
             # Calculate step size for frames
             step_size = max(1, num_points // animation_frames_dp)
             
+            # Determine the number of pendulums
+            num_pendulums = len(trajectories)
+            
             # Create frames based on view
             for k in range(0, num_points, step_size):
                 frame_data = []
                 
                 if view_dp == "Full Motion":
+                    # First add all pendulum arm traces
                     for j, (traj, cart) in enumerate(zip(trajectories, cartesian_trajs)):
-                        # Pendulum arms
                         frame_data.append(go.Scatter(
                             x=[0, cart['x1'][k], cart['x2'][k]], 
                             y=[0, cart['y1'][k], cart['y2'][k]],
@@ -240,20 +243,34 @@ with tabs[0]:
                             marker=dict(size=[8, 10, 10]),
                             name=f'Pendulum {j+1}'
                         ))
-                        # Trail
+                    
+                    # Then add all trail traces (even if empty for early frames)
+                    for j, (traj, cart) in enumerate(zip(trajectories, cartesian_trajs)):
                         if k > 10:
                             trail_start = max(0, k - 50)
                             frame_data.append(go.Scatter(
                                 x=cart['x2'][trail_start:k+1], 
                                 y=cart['y2'][trail_start:k+1],
                                 mode='lines',
-                                line=dict(color=colors[j % len(colors)], width=1),  # ✅ Remove opacity from here
-                                opacity=0.3,  # ✅ Put opacity here instead
+                                line=dict(color=colors[j % len(colors)], width=1),
+                                opacity=0.3,
+                                showlegend=False,
+                                name=f'Trail {j+1}'
+                            ))
+                        else:
+                            # Add empty trace to maintain consistent trace count
+                            frame_data.append(go.Scatter(
+                                x=[], 
+                                y=[],
+                                mode='lines',
+                                line=dict(color=colors[j % len(colors)], width=1),
+                                opacity=0.3,
                                 showlegend=False,
                                 name=f'Trail {j+1}'
                             ))
                 
                 elif view_dp == "Phase Space (θ₁-ω₁)":
+                    # First add all trajectory traces
                     for j, traj in enumerate(trajectories):
                         frame_data.append(go.Scatter(
                             x=np.rad2deg(traj[:k+1, 0]), 
@@ -262,10 +279,21 @@ with tabs[0]:
                             line=dict(color=colors[j % len(colors)], width=2),
                             name=f'Pendulum {j+1}'
                         ))
+                    # Then add all marker traces
+                    for j, traj in enumerate(trajectories):
                         if k > 0:
                             frame_data.append(go.Scatter(
                                 x=[np.rad2deg(traj[k, 0])], 
                                 y=[traj[k, 1]],
+                                mode='markers',
+                                marker=dict(color=colors[j % len(colors)], size=10),
+                                showlegend=False
+                            ))
+                        else:
+                            # Add empty marker for first frame
+                            frame_data.append(go.Scatter(
+                                x=[], 
+                                y=[],
                                 mode='markers',
                                 marker=dict(color=colors[j % len(colors)], size=10),
                                 showlegend=False
@@ -280,10 +308,19 @@ with tabs[0]:
                             line=dict(color=colors[j % len(colors)], width=2),
                             name=f'Pendulum {j+1}'
                         ))
+                    for j, traj in enumerate(trajectories):
                         if k > 0:
                             frame_data.append(go.Scatter(
                                 x=[np.rad2deg(traj[k, 2])], 
                                 y=[traj[k, 3]],
+                                mode='markers',
+                                marker=dict(color=colors[j % len(colors)], size=10),
+                                showlegend=False
+                            ))
+                        else:
+                            frame_data.append(go.Scatter(
+                                x=[], 
+                                y=[],
                                 mode='markers',
                                 marker=dict(color=colors[j % len(colors)], size=10),
                                 showlegend=False
@@ -298,10 +335,19 @@ with tabs[0]:
                             line=dict(color=colors[j % len(colors)], width=2),
                             name=f'Pendulum {j+1}'
                         ))
+                    for j, traj in enumerate(trajectories):
                         if k > 0:
                             frame_data.append(go.Scatter(
                                 x=[np.rad2deg(traj[k, 0])], 
                                 y=[np.rad2deg(traj[k, 2])],
+                                mode='markers',
+                                marker=dict(color=colors[j % len(colors)], size=10),
+                                showlegend=False
+                            ))
+                        else:
+                            frame_data.append(go.Scatter(
+                                x=[], 
+                                y=[],
                                 mode='markers',
                                 marker=dict(color=colors[j % len(colors)], size=10),
                                 showlegend=False
@@ -530,7 +576,8 @@ with tabs[0]:
                 fig.add_trace(go.Scatter(
                     x=cart['x2'], y=cart['y2'],
                     mode='lines',
-                    line=dict(color=colors[j % len(colors)], width=1, opacity=0.3),
+                    line=dict(color=colors[j % len(colors)], width=1),
+                    opacity=0.3,
                     name=f'Trail {j+1}'
                 ))
                 fig.add_trace(go.Scatter(
