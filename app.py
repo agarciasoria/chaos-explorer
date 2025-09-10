@@ -48,7 +48,7 @@ tabs = st.tabs([
 # ============================================
 # TAB 1: DOUBLE PENDULUM WITH ANIMATIONS
 # ============================================
-with tabs[1]:
+with tabs[0]:
     st.header("Double Pendulum")
     st.write("Experience chaos in mechanical systems through the mesmerizing double pendulum")
     
