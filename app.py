@@ -46,11 +46,128 @@ tabs = st.tabs([
 ])
 
 # ============================================
-# TAB 1: DOUBLE PENDULUM (placeholder)
+# TAB 1: DOUBLE PENDULUM
 # ============================================
 with tabs[0]:
     st.header("Double Pendulum")
-    st.write("Coming soon...")
+
+    # Parameters
+    st.sidebar.subheader("Double Pendulum Parameters")
+    m1 = st.sidebar.slider("Mass m1", 0.1, 5.0, 1.0, 0.1)
+    m2 = st.sidebar.slider("Mass m2", 0.1, 5.0, 1.0, 0.1)
+    L1 = st.sidebar.slider("Length L1", 0.1, 5.0, 1.0, 0.1)
+    L2 = st.sidebar.slider("Length L2", 0.1, 5.0, 1.0, 0.1)
+    g = st.sidebar.slider("Gravity g", 1.0, 20.0, 9.81, 0.1)
+
+    # Initial conditions
+    st.sidebar.subheader("Initial Conditions")
+    theta1_0 = st.sidebar.slider("θ1 (radians)", -3.14, 3.14, 1.0, 0.01)
+    theta2_0 = st.sidebar.slider("θ2 (radians)", -3.14, 3.14, -1.0, 0.01)
+    omega1_0 = st.sidebar.slider("ω1", -10.0, 10.0, 0.0, 0.1)
+    omega2_0 = st.sidebar.slider("ω2", -10.0, 10.0, 0.0, 0.1)
+
+    # Simulation settings
+    st.sidebar.subheader("Simulation Settings")
+    T = st.sidebar.slider("Total Time", 1.0, 50.0, 20.0, 1.0)
+    dt = st.sidebar.slider("Time Step", 0.001, 0.1, 0.02, 0.001)
+
+    show_anim = st.sidebar.checkbox("Animate", value=True)
+    show_eq = st.sidebar.checkbox("Show Equations", value=False)
+
+    # Equations of motion
+    def derivatives(state, t):
+        theta1, omega1, theta2, omega2 = state
+        delta = theta2 - theta1
+
+        den1 = (m1 + m2) * L1 - m2 * L1 * np.cos(delta)**2
+        den2 = (L2 / L1) * den1
+
+        domega1 = ((m2 * L1 * omega1**2 * np.sin(delta) * np.cos(delta) +
+                    m2 * g * np.sin(theta2) * np.cos(delta) +
+                    m2 * L2 * omega2**2 * np.sin(delta) -
+                    (m1 + m2) * g * np.sin(theta1)) / den1)
+
+        domega2 = ((-m2 * L2 * omega2**2 * np.sin(delta) * np.cos(delta) +
+                    (m1 + m2) * g * np.sin(theta1) * np.cos(delta) -
+                    (m1 + m2) * L1 * omega1**2 * np.sin(delta) -
+                    (m1 + m2) * g * np.sin(theta2)) / den2)
+
+        return np.array([omega1, domega1, omega2, domega2])
+
+    # Time array
+    t = np.arange(0, T, dt)
+
+    # RK4 integrator
+    def rk4_step(f, y, t, dt):
+        k1 = f(y, t)
+        k2 = f(y + 0.5 * dt * k1, t + 0.5 * dt)
+        k3 = f(y + 0.5 * dt * k2, t + 0.5 * dt)
+        k4 = f(y + dt * k3, t + dt)
+        return y + (dt/6) * (k1 + 2*k2 + 2*k3 + k4)
+
+    # Integrate trajectory
+    state = np.array([theta1_0, omega1_0, theta2_0, omega2_0])
+    trajectory = []
+    for ti in t:
+        trajectory.append(state)
+        state = rk4_step(derivatives, state, ti, dt)
+    trajectory = np.array(trajectory)
+
+    # Convert to cartesian coords
+    theta1, omega1, theta2, omega2 = trajectory.T
+    x1 = L1 * np.sin(theta1)
+    y1 = -L1 * np.cos(theta1)
+    x2 = x1 + L2 * np.sin(theta2)
+    y2 = y1 - L2 * np.cos(theta2)
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(6, 6))
+    if show_anim:
+        def update(frame):
+            ax.clear()
+            ax.plot([0, x1[frame], x2[frame]], [0, y1[frame], y2[frame]], "o-", lw=2)
+            ax.set_xlim(-L1 - L2 - 0.5, L1 + L2 + 0.5)
+            ax.set_ylim(-L1 - L2 - 0.5, L1 + L2 + 0.5)
+            ax.set_title(f"t = {t[frame]:.2f}")
+        ani = FuncAnimation(fig, update, frames=len(t), interval=30, blit=False)
+        st.pyplot(fig)
+    else:
+        ax.plot(x2, y2, label="Mass 2 trajectory")
+        ax.set_aspect("equal")
+        ax.legend()
+        st.pyplot(fig)
+
+    # Download data
+    csv_data = "t,x1,y1,x2,y2\n" + "\n".join(
+        f"{ti},{x1i},{y1i},{x2i},{y2i}" for ti, x1i, y1i, x2i, y2i in zip(t, x1, y1, x2, y2)
+    )
+    st.download_button("Download Trajectory (CSV)", data=csv_data, file_name="double_pendulum.csv")
+
+    # Optional equations
+    if show_eq:
+        st.latex(r"""
+        \begin{aligned}
+        \dot{\theta}_1 &= \omega_1 \\
+        \dot{\theta}_2 &= \omega_2 \\
+        \dot{\omega}_1 &= \frac{m_2 L_1 \omega_1^2 \sin\delta \cos\delta + m_2 g \sin\theta_2 \cos\delta + m_2 L_2 \omega_2^2 \sin\delta - (m_1+m_2) g \sin\theta_1}{(m_1+m_2)L_1 - m_2 L_1 \cos^2\delta} \\
+        \dot{\omega}_2 &= \frac{-m_2 L_2 \omega_2^2 \sin\delta \cos\delta + (m_1+m_2)(g \sin\theta_1 \cos\delta - L_1 \omega_1^2 \sin\delta - g \sin\theta_2)}{(L_2/L_1)[(m_1+m_2)L_1 - m_2 L_1 \cos^2\delta]}
+        \end{aligned}
+        """)
+
+    # Theory section
+    with st.expander("Theory"):
+        st.markdown(r"""
+        The **double pendulum** is a classical example of a chaotic system, 
+        consisting of two pendulums attached end to end.  
+
+        - The equations of motion are derived using the **Lagrangian formalism**.  
+        - For small angles, the system behaves regularly, but for larger ones, it exhibits **chaotic dynamics**.  
+        - It is sensitive to initial conditions, making it a perfect playground for studying chaos in mechanics.  
+
+        In this simulation, you can vary the masses, lengths, and initial angles 
+        to explore different dynamical regimes.
+        """)
+
 
 # ============================================
 # TAB 2: LORENZ ATTRACTOR WITH ANIMATIONS
