@@ -791,7 +791,7 @@ with tabs[0]:
             - **Molecular Dynamics**: Simplified model for molecular conformational changes
             - **Space Mechanics**: Tethered satellite systems and space elevator dynamics
             
-                        ### 🎮 Exploration Guide
+            ### 🎮 Exploration Guide
             
             To truly appreciate this system's richness, try these experiments:
             
