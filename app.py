@@ -636,8 +636,214 @@ with tabs[0]:
     
     else:
         st.info("👆 Click 'Generate Animation' or 'Generate Static Plot' to visualize the double pendulum")
+    # Metrics
+    st.write("---")
+    m1_col, m2_col, m3_col, m4_col = st.columns(4)
+    with m1_col:
+        st.metric("Total Mass", f"{m1 + m2:.1f} kg")
+    with m2_col:
+        st.metric("Total Length", f"{L1 + L2:.1f} m")
+    with m3_col:
+        if 'dp_energies' in st.session_state and st.session_state.dp_energies:
+            st.metric("Initial Energy", f"{st.session_state.dp_energies[0][0]:.2f} J")
+        else:
+            st.metric("Initial Energy", "—")
+    with m4_col:
+        st.metric("g", f"{g:.2f} m/s²")
 
-    #
+    # Downloads - only show if trajectory data exists
+    if 'dp_trajectories' in st.session_state and st.session_state.dp_trajectories is not None and enable_downloads_dp:
+        st.write("### 📥 Download Options")
+        
+        trajectories = st.session_state.dp_trajectories
+        time_points = st.session_state.dp_time
+        
+        # CSV downloads
+        col1, col2, col3 = st.columns(3)
+        
+        for j in range(len(trajectories)):
+            csv_lines = ["t,theta1,omega1,theta2,omega2,x1,y1,x2,y2"]
+            cart = st.session_state.dp_cartesian[j]
+            for i in range(len(trajectories[j])):
+                t_val = time_points[i]
+                theta1, omega1, theta2, omega2 = trajectories[j][i]
+                csv_lines.append(f"{t_val:.6f},{theta1:.6f},{omega1:.6f},{theta2:.6f},{omega2:.6f},"
+                               f"{cart['x1'][i]:.6f},{cart['y1'][i]:.6f},{cart['x2'][i]:.6f},{cart['y2'][i]:.6f}")
+            csv_data = "\n".join(csv_lines)
+            
+            with col1 if j == 0 else col2:
+                st.download_button(
+                    label=f"📊 Pendulum {j+1} (CSV)",
+                    data=csv_data,
+                    file_name=f"double_pendulum_{j+1}.csv",
+                    mime="text/csv",
+                    key=f"dp_csv_download_{j}"
+                )
+        
+        # Interactive HTML download
+        with col3:
+            # Create figure for download
+            fig_download = go.Figure()
+            colors = ["blue", "red"]
+            
+            if view_dp == "Full Motion":
+                for j, cart in enumerate(st.session_state.dp_cartesian):
+                    fig_download.add_trace(go.Scatter(
+                        x=cart['x2'], y=cart['y2'],
+                        mode='lines',
+                        line=dict(color=colors[j % len(colors)], width=1),
+                        opacity=0.3,
+                        name=f'Pendulum {j+1} Trail'
+                    ))
+            
+            html_buf = io.StringIO()
+            fig_download.write_html(html_buf, include_plotlyjs="cdn")
+            st.download_button(
+                label="🌐 Interactive HTML",
+                data=html_buf.getvalue().encode(),
+                file_name="double_pendulum.html",
+                mime="text/html",
+                key="dp_html_download"
+            )
+
+    # Rich theory section
+    with st.expander("📚 Learn More — The Mathematics and Physics of the Double Pendulum"):
+        st.markdown(
+            r"""
+            ### 🎭 A Dance of Complexity
+            
+            The double pendulum is perhaps the simplest mechanical system that exhibits chaotic behavior. Unlike the single pendulum, 
+            which can be solved exactly and shows predictable motion, the double pendulum demonstrates how adding just one more 
+            degree of freedom can lead to extraordinarily complex dynamics. This deceptively simple system—just two rigid rods 
+            connected by frictionless pivots—has captivated physicists, mathematicians, and artists alike with its hypnotic, 
+            unpredictable motion.
+            
+            ### 🧮 The Lagrangian Formulation
+            
+            To understand the double pendulum, we must venture into the elegant world of Lagrangian mechanics. Instead of tracking 
+            forces directly, we use the principle of least action, working with energies:
+            
+            **The Lagrangian**: $\mathcal{L} = T - V$
+            
+            Where:
+            - **T** is the total kinetic energy of both masses
+            - **V** is the total potential energy
+            
+            The kinetic energy involves both translational motion of the masses and is given by:
+            $$T = \frac{1}{2}m_1(L_1\dot{\theta}_1)^2 + \frac{1}{2}m_2[(L_1\dot{\theta}_1)^2 + (L_2\dot{\theta}_2)^2 + 2L_1L_2\dot{\theta}_1\dot{\theta}_2\cos(\theta_1-\theta_2)]$$
+            
+            The potential energy (taking the pivot as reference):
+            $$V = -m_1gL_1\cos\theta_1 - m_2g(L_1\cos\theta_1 + L_2\cos\theta_2)$$
+            
+            Applying the Euler-Lagrange equations $\frac{d}{dt}\frac{\partial\mathcal{L}}{\partial\dot{\theta}_i} - \frac{\partial\mathcal{L}}{\partial\theta_i} = 0$ 
+            yields the complex coupled differential equations shown above.
+            
+            ### 🌀 Understanding the Variables
+            
+            When you adjust the sliders, you're exploring a rich parameter space:
+            
+            - **θ₁, θ₂**: The angles from vertical. Small angles yield nearly linear behavior, while large angles unlock the full nonlinear dynamics
+            - **ω₁, ω₂**: Angular velocities. Initial spin can dramatically alter the trajectory
+            - **m₁, m₂**: The mass ratio affects the coupling strength between pendulums
+            - **L₁, L₂**: Length ratio influences the time scales and resonances
+            - **Damping**: Models air resistance and friction, eventually bringing chaos to rest
+            
+            ### 🔄 The Perturbation Experiment
+            
+            When you enable "Compare two nearby initial conditions" with perturbation δ, you're conducting a fundamental chaos experiment. 
+            The second pendulum starts with angles $(θ_1 + δ, θ_2 + δ)$. This tiny difference—perhaps representing measurement 
+            uncertainty or a slight breeze—leads to dramatically different trajectories.
+            
+            Unlike the exponential divergence in the Lorenz system, the double pendulum shows a more complex sensitivity:
+            - **Short term** (~1-5 swings): Trajectories remain close, motion appears deterministic
+            - **Medium term** (~5-20 swings): Differences amplify rapidly, trajectories diverge
+            - **Long term**: Completely uncorrelated motion, despite identical parameters
+            
+            ### 🎯 Chaos Without Strange Attractors
+            
+            The double pendulum's chaos differs fundamentally from the Lorenz system:
+            
+            **Energy Conservation**: Without damping, total energy $E = T + V$ remains constant. The system explores a 
+            3-dimensional energy surface in the 4-dimensional phase space $(θ_1, ω_1, θ_2, ω_2)$.
+            
+            **No Attractor**: Unlike Lorenz, trajectories don't converge to a fractal set. Instead, they wander chaotically 
+            on the energy surface, filling it ergodically over time.
+            
+            **Poincaré Sections**: Slicing through phase space reveals intricate structures—islands of stability (KAM tori) 
+            surrounded by chaotic seas, a hallmark of Hamiltonian chaos.
+            
+            ### 🌟 Special Behaviors to Explore
+            
+            The double pendulum exhibits fascinating regimes:
+            
+            1. **Low Energy**: Both pendulums swing like coupled harmonic oscillators
+            2. **Medium Energy**: Complex periodic and quasi-periodic orbits emerge
+            3. **High Energy**: Full rotations possible, leading to tumbling chaos
+            4. **Resonances**: When $L_1/L_2$ forms simple ratios, special synchronized motions appear
+            
+            ### 🛠️ Real-World Applications
+            
+            Far from being just a mathematical curiosity, the double pendulum illuminates:
+            
+            - **Robotics**: Multi-link robot arms face similar control challenges
+            - **Biomechanics**: Human limbs during sports (golf swing, gymnastics) behave like coupled pendulums
+            - **Structural Engineering**: Building sway, crane dynamics, and suspension bridge oscillations
+            - **Molecular Dynamics**: Simplified model for molecular conformational changes
+            - **Space Mechanics**: Tethered satellite systems and space elevator dynamics
+            
+                        ### 🎮 Exploration Guide
+            
+            To truly appreciate this system's richness, try these experiments:
+            
+            1. **Find the Separator**: Start with both angles at 180° (straight up). This unstable equilibrium separates 
+               rotational from oscillatory motion. A tiny perturbation determines the system's fate.
+            
+            2. **Energy Transitions**: Begin with low energy (small angles, zero velocity) and gradually increase. Watch the 
+               transition from regular to chaotic motion around 60-90° initial angles.
+            
+            3. **Mass Ratio Effects**: 
+               - Set m₂ << m₁: The second pendulum acts like a probe, barely affecting the first
+               - Set m₂ >> m₁: The first mass gets whipped around by the second
+               - Equal masses: Maximum coupling and energy exchange
+            
+            4. **Period Doubling**: With specific initial conditions (try θ₁=45°, θ₂=0°, both velocities zero), you might 
+               observe period-doubling cascades—a route to chaos discovered by Feigenbaum.
+            
+            5. **Phase Space Portraits**: The phase space views reveal hidden structure:
+               - Closed loops indicate periodic motion
+               - Wandering trajectories show chaos
+               - Look for separatrices dividing different motion types
+            
+            6. **Damping Effects**: Add small damping (0.1) and watch how chaos eventually yields to equilibrium. The approach 
+               to rest can be surprisingly complex, with temporary "trapping" in metastable states.
+            
+            ### 🔬 The Butterfly Effect Visualized
+            
+            The double pendulum provides one of the most visceral demonstrations of sensitive dependence on initial conditions. 
+            Unlike weather prediction where we can't see alternate realities, here you can directly observe how microscopic 
+            differences (δ = 0.01°) lead to macroscopic divergence. This isn't just mathematical abstraction—it's chaos you 
+            can see, measure, and feel.
+            
+            ### 📐 Advanced Topics
+            
+            For the mathematically inclined, the double pendulum opens doors to:
+            
+            - **KAM Theory**: Kolmogorov-Arnold-Moser theory explains the coexistence of regular and chaotic motion
+            - **Lyapunov Exponents**: Quantify the rate of trajectory separation
+            - **Homoclinic Tangles**: The origin of chaos through intersecting stable and unstable manifolds
+            - **Symplectic Integration**: Numerical methods that preserve the Hamiltonian structure
+            
+            ### 🌈 Aesthetic Mathematics
+            
+            Beyond science, the double pendulum has inspired artists and designers. Its trajectories create natural fractals, 
+            painting abstract art through physics. LED-traced double pendulums produce mesmerizing light paintings, while 
+            the motion itself has been choreographed into dance performances—chaos made tangible and beautiful.
+            
+            Remember: each trajectory you generate is unique in the universe's history. The exact path depends on initial 
+            conditions specified to infinite precision, making every run a one-time cosmic event. You're not just observing 
+            chaos—you're creating unique, never-to-be-repeated patterns in the mathematical universe.
+            """
+        )
 
 
 # ============================================
