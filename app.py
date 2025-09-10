@@ -238,7 +238,7 @@ with tabs[0]:
                             mode='lines+markers',
                             line=dict(color=colors[j % len(colors)], width=3),
                             marker=dict(size=[8, 10, 10]),
-                                                        name=f'Pendulum {j+1}'
+                            name=f'Pendulum {j+1}'
                         ))
                         # Trail
                         if k > 10:
@@ -247,7 +247,8 @@ with tabs[0]:
                                 x=cart['x2'][trail_start:k+1], 
                                 y=cart['y2'][trail_start:k+1],
                                 mode='lines',
-                                line=dict(color=colors[j % len(colors)], width=1, opacity=0.3),
+                                line=dict(color=colors[j % len(colors)], width=1),  # ✅ Remove opacity from here
+                                opacity=0.3,  # ✅ Put opacity here instead
                                 showlegend=False,
                                 name=f'Trail {j+1}'
                             ))
@@ -440,7 +441,8 @@ with tabs[0]:
                         x=cart['x2'], 
                         y=cart['y2'],
                         mode='lines',
-                        line=dict(color=colors[j % len(colors)], width=1, opacity=0.3),
+                        line=dict(color=colors[j % len(colors)], width=1),
+                        opacity=0.3,
                         name=f'Trail {j+1}'
                     ))
                     # Final pendulum position
