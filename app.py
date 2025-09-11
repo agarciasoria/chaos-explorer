@@ -4195,50 +4195,80 @@ with tabs[3]:  # Lyapunov Exponents tab
                     for j, a in enumerate(a_grid):
                         x, y = x0, 0.0
                         
-                        # Skip transient
+                        # Skip transient - check for escape
+                        escaped = False
                         for _ in range(50):
+                            if abs(x) > 1e5 or abs(y) > 1e5:  # Check for escape
+                                escaped = True
+                                break
                             x_new = 1 - a * x**2 + y
                             y_new = b_henon * x
                             x, y = x_new, y_new
                         
+                        if escaped:
+                            ftle_map[i, j] = np.nan  # Mark as escaped
+                            continue
+                        
                         # Compute finite-time Lyapunov using Jacobian method
                         lyap_sum = 0
                         x_traj, y_traj = x, y
+                        valid_iterations = 0
                         
                         for _ in range(window_size):
+                            # Check for escape during computation
+                            if abs(x_traj) > 1e5 or abs(y_traj) > 1e5 or np.isnan(x_traj) or np.isnan(y_traj):
+                                break
+                            
                             # Jacobian matrix
                             J = np.array([[-2*a*x_traj, 1],
                                         [b_henon, 0]])
                             
+                            # Check if Jacobian contains valid values
+                            if np.any(np.isnan(J)) or np.any(np.isinf(J)):
+                                break
+                            
                             # Largest eigenvalue magnitude
-                            eigenvalues = np.linalg.eigvals(J)
-                            lyap_sum += np.log(np.max(np.abs(eigenvalues)))
+                            try:
+                                eigenvalues = np.linalg.eigvals(J)
+                                max_eigenvalue = np.max(np.abs(eigenvalues))
+                                
+                                if max_eigenvalue > 0 and not np.isnan(max_eigenvalue) and not np.isinf(max_eigenvalue):
+                                    lyap_sum += np.log(max_eigenvalue)
+                                    valid_iterations += 1
+                            except:
+                                break
                             
                             # Update
                             x_new = 1 - a * x_traj**2 + y_traj
                             y_new = b_henon * x_traj
                             x_traj, y_traj = x_new, y_new
                         
-                        ftle_map[i, j] = lyap_sum / window_size
+                        if valid_iterations > 0:
+                            ftle_map[i, j] = lyap_sum / valid_iterations
+                        else:
+                            ftle_map[i, j] = np.nan
                     
                     progress_bar.progress((i + 1) / len(x0_grid))
                 
                 progress_bar.empty()
                 
-                # Create heatmap
+                # Create heatmap - handle NaN values
                 fig = go.Figure(data=go.Heatmap(
                     z=ftle_map,
                     x=a_grid,
                     y=x0_grid,
                     colorscale=color_scheme,
                     colorbar=dict(title="FTLE"),
-                    hoverongaps=False,
-                    hovertemplate="a: %{x}<br>x₀: %{y}<br>FTLE: %{z:.3f}<extra></extra>"
+                    hoverongaps=True,  # Changed to True to handle gaps
+                    hovertemplate="a: %{x}<br>x₀: %{y}<br>FTLE: %{z:.3f}<extra></extra>",
+                    connectgaps=False  # Don't interpolate over NaN values
                 ))
                 
-                # Add contour at FTLE = 0
+                # Add contour at FTLE = 0 - mask NaN values
+                masked_ftle = np.ma.array(ftle_map, mask=np.isnan(ftle_map))
+                
                 fig.add_contour(
-                    z=ftle_map,
+                    z=masked_ftle,
                     x=a_grid,
                     y=x0_grid,
                     contours=dict(
