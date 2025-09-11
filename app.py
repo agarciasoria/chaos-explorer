@@ -2985,7 +2985,7 @@ with tabs[3]:  # Lyapunov Exponents tab
                 fig.update_yaxes(title_text="Average LLE", row=2, col=1)
                 
                 fig.update_layout(
-                    title=f"Lyapunov Exponent Convergence (r = {r:.2f})",
+                    title=f"Lyapunov Exponent Convergence (r = {r_convergence:.2f})",
                     height=700,
                     template="plotly_white",
                     showlegend=False
