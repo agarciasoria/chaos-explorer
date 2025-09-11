@@ -2944,7 +2944,7 @@ with tabs[3]:  # Lyapunov Exponents tab
                 for i in range(iterations):
                     x = r_convergence * x * (1 - x)
                     if 0 < x < 1:
-                        instant_lyap = np.log(abs(r * (1 - 2*x)))
+                        instant_lyap = np.log(abs(r_convergence * (1 - 2*x)))
                         lyap_sum += instant_lyap
                         lyap_values.append(instant_lyap)
                         lyap_running_avg.append(lyap_sum / (i + 1))
