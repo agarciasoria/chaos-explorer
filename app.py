@@ -1681,12 +1681,12 @@ with tabs[2]:
                     height=600,
                     template="plotly_white"
                 )
-                                # Add annotations for key transitions
+                # Add annotations for key transitions
                 if show_theory:
                     fig.add_vline(x=24.74, line_dash="dash", line_color="red", opacity=0.5)
-                    fig.add_annotation(x=24.74, y=0, text="Hopf bifurcation", showarrow=False, textangle=-90, yref="paper", y=0.95)
+                    fig.add_annotation(x=24.74, y=0.95, text="Hopf bifurcation", showarrow=False, textangle=-90, yref="paper")
                     fig.add_vline(x=99.65, line_dash="dash", line_color="blue", opacity=0.5)
-                    fig.add_annotation(x=99.65, y=0, text="Periodic window", showarrow=False, textangle=-90, yref="paper", y=0.95)
+                    fig.add_annotation(x=99.65, y=0.95, text="Periodic window", showarrow=False, textangle=-90, yref="paper")
                 
                 st.plotly_chart(fig, use_container_width=True)
                 st.session_state.bifurcation_data = bifurcation_data
