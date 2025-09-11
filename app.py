@@ -2663,6 +2663,14 @@ with tabs[3]:  # Lyapunov Exponents tab
             a_convergence = st.slider("Select a value for convergence analysis", 
                                     a_min, a_max, 1.4, step=0.01,
                                     key="a_convergence_slider")
+        elif system == "Duffing Oscillator":
+            gamma_convergence = st.slider("Select γ value for convergence analysis", 
+                                        gamma_min, gamma_max, (gamma_min + gamma_max)/2, step=0.01,
+                                        key="gamma_convergence_slider")
+        elif system == "Van der Pol Oscillator":
+            mu_convergence = st.slider("Select μ value for convergence analysis", 
+                                    mu_min, mu_max, (mu_min + mu_max)/2, step=0.1,
+                                    key="mu_convergence_slider")
     
     # Add tips before compute button
     st.markdown("---")
@@ -3703,9 +3711,7 @@ with tabs[3]:  # Lyapunov Exponents tab
             
             elif system == "Duffing Oscillator":
                 # Duffing oscillator convergence
-                gamma_convergence = st.slider("Select γ value for convergence analysis", 
-                                            gamma_min, gamma_max, (gamma_min + gamma_max)/2, step=0.01,
-                                            key="gamma_convergence_slider")
+                
                 
                 # Initial conditions
                 state = np.array([0.1, 0.0])  # x, x_dot
@@ -3830,9 +3836,7 @@ with tabs[3]:  # Lyapunov Exponents tab
             
             elif system == "Van der Pol Oscillator":
                 # Van der Pol convergence
-                mu_convergence = st.slider("Select μ value for convergence analysis", 
-                                        mu_min, mu_max, (mu_min + mu_max)/2, step=0.1,
-                                        key="mu_convergence_slider")
+                
                 
                 # Initial conditions on limit cycle
                 if mu_convergence < 0.1:
