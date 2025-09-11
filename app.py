@@ -1948,29 +1948,30 @@ with tabs[2]:
                     if mu <= 0:
                         # No limit cycle for μ ≤ 0
                         bifurcation_data.append((mu, 0))
-                    elif mu > 10:
-                        # For very large μ, use theoretical values
-                        # The limit cycle has amplitude ≈ 2
-                        bifurcation_data.append((mu, 2.0))
-                        bifurcation_data.append((mu, -2.0))
                     else:
-                        # Numerical integration for 0 < μ ≤ 10
+                        # Numerical integration for μ > 0
                         # Adaptive parameters based on μ
-                        if mu < 1:
-                            dt_vdp = 0.1
-                            x0, v0 = 0.5, 0.0
-                            t_transient_adaptive = min(50, t_transient_vdp)
-                            t_collect_adaptive = min(30, t_collect_vdp)
+                        if mu < 0.1:
+                            dt_vdp = 0.01
+                            # Better initial condition near the limit cycle
+                            x0, v0 = 2*np.sqrt(mu), 0.0
+                            t_transient_adaptive = max(100, t_transient_vdp)
+                            t_collect_adaptive = max(50, t_collect_vdp)
+                        elif mu < 1:
+                            dt_vdp = 0.01
+                            x0, v0 = 2*np.sqrt(mu), 0.0
+                            t_transient_adaptive = max(50, t_transient_vdp)
+                            t_collect_adaptive = max(30, t_collect_vdp)
                         elif mu < 5:
                             dt_vdp = 0.01
                             x0, v0 = 2.0, 0.0
-                            t_transient_adaptive = min(40, t_transient_vdp)
-                            t_collect_adaptive = min(40, t_collect_vdp)
+                            t_transient_adaptive = max(40, t_transient_vdp)
+                            t_collect_adaptive = max(40, t_collect_vdp)
                         else:
                             dt_vdp = 0.001  # Very small for relaxation oscillations
                             x0, v0 = 2.0, 0.0
-                            t_transient_adaptive = min(20, t_transient_vdp)
-                            t_collect_adaptive = min(20, t_collect_vdp)
+                            t_transient_adaptive = max(30, t_transient_vdp)
+                            t_collect_adaptive = max(30, t_collect_vdp)
                         
                         n_transient = int(t_transient_adaptive / dt_vdp)
                         n_collect = int(t_collect_adaptive / dt_vdp)
@@ -2018,11 +2019,16 @@ with tabs[2]:
                             x_new = x + dt_vdp * (k1x + 2*k2x + 2*k3x + k4x) / 6
                             v_new = v + dt_vdp * (k1v + 2*k2v + 2*k3v + k4v) / 6
                             
-                            # Detect maxima/minima using velocity sign change
-                            if v_prev > 0 and v_new <= 0:  # Maximum
-                                x_max_list.append(x)
-                            elif v_prev < 0 and v_new >= 0:  # Minimum
-                                x_min_list.append(x)
+                            # Improved peak detection with interpolation
+                            if v_prev * v_new < 0:  # Sign change in velocity
+                                # Linear interpolation to find exact extremum
+                                t_exact = -v_prev / (v_new - v_prev) * dt_vdp
+                                x_interp = x_prev + (x_new - x_prev) * t_exact / dt_vdp
+                                
+                                if v_prev > 0:  # Maximum
+                                    x_max_list.append(x_interp)
+                                else:  # Minimum
+                                    x_min_list.append(x_interp)
                             
                             x_prev = x
                             v_prev = v
@@ -2030,40 +2036,21 @@ with tabs[2]:
                             v = v_new
                         
                         # Add extrema to bifurcation data
-                        if mu > 5:
-                            # For large μ, clean up the data
-                            if x_max_list:
-                                # Filter outliers for relaxation oscillations
-                                filtered_max = [x for x in x_max_list if 1.8 < x < 2.2]
-                                if filtered_max:
-                                    avg_max = np.mean(filtered_max)
-                                else:
-                                    avg_max = 2.0
-                                bifurcation_data.append((mu, avg_max))
-                            
-                            if x_min_list:
-                                filtered_min = [x for x in x_min_list if -2.2 < x < -1.8]
-                                if filtered_min:
-                                    avg_min = np.mean(filtered_min)
-                                else:
-                                    avg_min = -2.0
-                                bifurcation_data.append((mu, avg_min))
-                        else:
-                            # For small/medium μ, use all data
-                            if x_max_list:
-                                avg_max = np.mean(x_max_list[-5:]) if len(x_max_list) > 5 else np.mean(x_max_list)
-                                bifurcation_data.append((mu, avg_max))
-                            
-                            if x_min_list:
-                                avg_min = np.mean(x_min_list[-5:]) if len(x_min_list) > 5 else np.mean(x_min_list)
-                                bifurcation_data.append((mu, avg_min))
+                        if x_max_list:
+                            # Use the last few values after transients have died out
+                            avg_max = np.mean(x_max_list[-min(10, len(x_max_list)):])
+                            bifurcation_data.append((mu, avg_max))
                         
-                        # If no extrema found, use theoretical
+                        if x_min_list:
+                            avg_min = np.mean(x_min_list[-min(10, len(x_min_list)):])
+                            bifurcation_data.append((mu, avg_min))
+                        
+                        # If no extrema found (shouldn't happen), use theoretical approximation
                         if not x_max_list and not x_min_list:
                             if mu < 0.1:
-                                amplitude = 2 * np.sqrt(mu)  # Small μ approximation
+                                amplitude = 2 * np.sqrt(mu)
                             else:
-                                amplitude = 2 * (1 - np.exp(-mu/2))  # Large μ approximation
+                                amplitude = 2 * (1 - np.exp(-mu/2))
                             bifurcation_data.append((mu, amplitude))
                             bifurcation_data.append((mu, -amplitude))
                     
@@ -2088,7 +2075,7 @@ with tabs[2]:
                         mode='markers',
                         marker=dict(
                             size=point_size,
-                            color='cyan',  # Bright single color
+                            color='cyan',
                             opacity=0.8
                         ),
                         name='Limit cycle extrema'
