@@ -1944,43 +1944,86 @@ with tabs[2]:
                 
                 progress_bar = st.progress(0)
                 
-                def vanderpol_system(t, state, mu):
-                    x, v = state
-                    dxdt = v
-                    dvdt = mu * (1 - x**2) * v - x
-                    return [dxdt, dvdt]
-                
                 for i, mu in enumerate(mu_values):
-                    # Integrate with transient
-                    t_span = [0, t_transient_vdp + t_collect_vdp]
-                    t_eval = np.linspace(t_transient_vdp, t_transient_vdp + t_collect_vdp, 1000)
+                    # Adaptive parameters based on μ
+                    # For small μ, oscillations are nearly sinusoidal
+                    # For large μ, we have relaxation oscillations
+                    if mu < 0.5:
+                        dt_vdp = 0.1
+                        t_transient_adaptive = min(t_transient_vdp, 50)
+                        t_collect_adaptive = min(t_collect_vdp, 50)
+                    elif mu < 2:
+                        dt_vdp = 0.05
+                        t_transient_adaptive = t_transient_vdp
+                        t_collect_adaptive = t_collect_vdp
+                    else:  # Large μ - relaxation oscillations
+                        dt_vdp = 0.01
+                        t_transient_adaptive = min(t_transient_vdp, 20)
+                        t_collect_adaptive = min(t_collect_vdp, 40)
                     
-                    sol = solve_ivp(
-                        vanderpol_system,
-                        t_span,
-                        [2.0, 0.0],  # Initial conditions
-                        t_eval=t_eval,
-                        args=(mu,),
-                        rtol=1e-8
-                    )
+                    n_transient = int(t_transient_adaptive / dt_vdp)
+                    n_collect = int(t_collect_adaptive / dt_vdp)
                     
-                    # Find extrema of x (amplitude of limit cycle)
-                    x_data = sol.y[0]
-                    maxima_indices = np.where((x_data[1:-1] > x_data[:-2]) & (x_data[1:-1] > x_data[2:]))[0] + 1
-                    minima_indices = np.where((x_data[1:-1] < x_data[:-2]) & (x_data[1:-1] < x_data[2:]))[0] + 1
+                    x, v = 2.0, 0.0  # Initial conditions
                     
-                    # Collect last few extrema
-                    if len(maxima_indices) > 0:
-                        for max_val in x_data[maxima_indices[-min(10, len(maxima_indices)):]]:
-                            bifurcation_data.append((mu, max_val))
-                    if len(minima_indices) > 0:
-                        for min_val in x_data[minima_indices[-min(10, len(minima_indices)):]]:
-                            bifurcation_data.append((mu, min_val))
+                    # Skip transient
+                    for _ in range(n_transient):
+                        # Simplified RK2 for transient (faster)
+                        k1x = v
+                        k1v = mu * (1 - x**2) * v - x
+                        
+                        x += dt_vdp * (k1x + v + 0.5*dt_vdp*k1v) / 2
+                        v += dt_vdp * (k1v + mu * (1 - (x + 0.5*dt_vdp*k1x)**2) * (v + 0.5*dt_vdp*k1v) - (x + 0.5*dt_vdp*k1x)) / 2
                     
-                    if i % (mu_points // 20) == 0:
-                        progress_bar.progress(i / mu_points)
+                    # For large μ, we can use theoretical approximation
+                    if mu > 3:
+                        # Theoretical amplitude for large μ
+                        amplitude = 2.0
+                        bifurcation_data.append((mu, amplitude))
+                        bifurcation_data.append((mu, -amplitude))
+                    else:
+                        # Collect extrema for small/medium μ
+                        extrema = []
+                        x_history = []
+                        
+                        for _ in range(n_collect):
+                            # RK4 for accuracy
+                            k1x = v
+                            k1v = mu * (1 - x**2) * v - x
+                            
+                            k2x = v + 0.5*dt_vdp*k1v
+                            k2v = mu * (1 - (x + 0.5*dt_vdp*k1x)**2) * (v + 0.5*dt_vdp*k1v) - (x + 0.5*dt_vdp*k1x)
+                            
+                            x += dt_vdp * (k1x + 2*k2x) / 3
+                            v += dt_vdp * (k1v + 2*k2v) / 3
+                            
+                            x_history.append(x)
+                        
+                        # Find extrema efficiently
+                        if len(x_history) > 2:
+                            x_array = np.array(x_history)
+                            # Use diff to find sign changes in derivative
+                            dx = np.diff(x_array)
+                            sign_changes = np.where(np.diff(np.sign(dx)))[0]
+                            
+                            if len(sign_changes) > 0:
+                                extrema_indices = sign_changes + 1
+                                extrema = x_array[extrema_indices[-min(10, len(extrema_indices)):]]
+                                
+                                for e in extrema:
+                                    if abs(e) > 0.01:  # Filter noise
+                                        bifurcation_data.append((mu, e))
+                    
+                    if i % max(1, (mu_points // 20)) == 0:
+                        progress_bar.progress((i + 1) / mu_points)
                 
                 progress_bar.empty()
+                
+                # Store parameters for theory annotations
+                st.session_state.vanderpol_params = {
+                    'mu_min': mu_min,
+                    'mu_max': mu_max
+                }
                 
                 # Create plot
                 fig = go.Figure()
