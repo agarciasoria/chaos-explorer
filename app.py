@@ -2059,13 +2059,172 @@ with tabs[2]:
             name='Bifurcation'
         ))
         
-        fig.update_layout(
-            title=f"{system} Bifurcation Diagram",
-            xaxis_title="Parameter",
-            yaxis_title="State variable",
-            height=600,
-            template="plotly_white"
-        )
+        # Update layout based on system type
+        if system == "Logistic Map":
+            fig.update_layout(
+                title="Logistic Map Bifurcation Diagram",
+                xaxis_title="r",
+                yaxis_title="x",
+                height=600,
+                template="plotly_white"
+            )
+        elif system == "Lorenz System (ρ variation)":
+            fig.update_layout(
+                title="Lorenz System Bifurcation (Local Maxima of x)",
+                xaxis_title="ρ",
+                yaxis_title="x maxima",
+                height=600,
+                template="plotly_white"
+            )
+        elif system == "Duffing Oscillator":
+            fig.update_layout(
+                title="Duffing Oscillator Bifurcation (Poincaré Section)",
+                xaxis_title="γ (forcing amplitude)",
+                yaxis_title="x (displacement)",
+                height=600,
+                template="plotly_white"
+            )
+        elif system == "Van der Pol Oscillator":
+            fig.update_layout(
+                title="Van der Pol Oscillator Bifurcation (Limit Cycle Amplitude)",
+                xaxis_title="μ (nonlinearity parameter)",
+                yaxis_title="x extrema",
+                height=600,
+                template="plotly_white"
+            )
+        elif system == "Hénon Map":
+            fig.update_layout(
+                title="Hénon Map Bifurcation Diagram",
+                xaxis_title="a",
+                yaxis_title="x",
+                height=600,
+                template="plotly_white"
+            )
+        else:
+            fig.update_layout(
+                title=f"{system} Bifurcation Diagram",
+                xaxis_title="Parameter",
+                yaxis_title="State variable",
+                height=600,
+                template="plotly_white"
+            )
+        
+        # Add system-specific annotations if show_theory is enabled
+        if show_theory:
+            if system == "Logistic Map":
+                fig.add_vline(x=3.0, line_dash="dash", line_color="red", opacity=0.5)
+                fig.add_annotation(x=3.0, y=0.9, text="Period-2", showarrow=False, textangle=-90)
+                fig.add_vline(x=1+np.sqrt(6), line_dash="dash", line_color="red", opacity=0.5)
+                fig.add_annotation(x=1+np.sqrt(6), y=0.9, text="Period-4", showarrow=False, textangle=-90)
+                fig.add_vline(x=3.57, line_dash="dash", line_color="red", opacity=0.5)
+                fig.add_annotation(x=3.57, y=0.9, text="Chaos", showarrow=False, textangle=-90)
+            
+            elif system == "Lorenz System (ρ variation)":
+                # Pitchfork bifurcation
+                fig.add_vline(x=1.0, line_dash="dash", line_color="green", opacity=0.5)
+                fig.add_annotation(x=1.0, y=0.05, text="Pitchfork", showarrow=False, textangle=-90, yref="paper")
+                
+                # For standard parameters σ=10, β=8/3 (we can't check this from stored data, so show generic)
+                fig.add_vline(x=24.06, line_dash="dash", line_color="red", opacity=0.5)
+                fig.add_annotation(x=24.06, y=0.95, text="Chaos onset", showarrow=False, textangle=-90, yref="paper")
+                
+                # Periodic window
+                fig.add_vline(x=99.65, line_dash="dash", line_color="blue", opacity=0.5)
+                fig.add_annotation(x=99.65, y=0.95, text="Periodic window", showarrow=False, textangle=-90, yref="paper")
+            
+            elif system == "Duffing Oscillator":
+                # Add parameter info
+                param_text = "Duffing Oscillator Parameters"
+                fig.add_annotation(
+                    x=0.5, y=0.02, 
+                    text=param_text,
+                    xref="paper", yref="paper", 
+                    showarrow=False,
+                    bgcolor="rgba(255,255,255,0.8)", 
+                    font=dict(size=10)
+                )
+                
+                # Early region - usually stable
+                fig.add_annotation(
+                    x=0.15, y=0.9,
+                    text="Stable periodic",
+                    showarrow=True, 
+                    arrowhead=2,
+                    ax=0, ay=-40,
+                    bgcolor="rgba(255,255,255,0.8)"
+                )
+                
+                # Bifurcation region
+                fig.add_vline(x=0.28, line_dash="dash", line_color="orange", opacity=0.5)
+                fig.add_annotation(
+                    x=0.28, y=0.5,
+                    text="Bifurcation cascade",
+                    showarrow=False,
+                    textangle=-90,
+                    yref="paper",
+                    bgcolor="rgba(255,255,255,0.8)"
+                )
+                
+                # Chaotic region
+                fig.add_annotation(
+                    x=0.35, y=0.1,
+                    text="Chaotic dynamics",
+                    showarrow=True,
+                    arrowhead=2,
+                    ax=30, ay=30,
+                    bgcolor="rgba(255,255,255,0.8)"
+                )
+                
+                # Period-3 window
+                fig.add_vline(x=0.365, line_dash="dash", line_color="blue", opacity=0.5)
+                fig.add_annotation(
+                    x=0.365, y=0.95,
+                    text="Period-3",
+                    showarrow=False,
+                    yref="paper",
+                    bgcolor="rgba(255,255,255,0.8)"
+                )
+            
+            elif system == "Van der Pol Oscillator":
+                # Hopf bifurcation at μ=0
+                fig.add_vline(x=0, line_dash="dash", line_color="green", opacity=0.5)
+                fig.add_annotation(x=0, y=0.95, text="Hopf bifurcation", showarrow=False, textangle=-90, yref="paper")
+                
+                # Get parameter range from data
+                min_param = min(param_vals)
+                max_param = max(param_vals)
+                
+                # Add theoretical amplitude for large μ
+                if max_param > 1:
+                    mu_theory = np.linspace(max(1, min_param), max_param, 100)
+                    amplitude_theory = 2 * np.ones_like(mu_theory)
+                    fig.add_trace(go.Scatter(
+                        x=mu_theory,
+                        y=amplitude_theory,
+                        mode='lines',
+                        line=dict(color='red', dash='dash'),
+                        name='Theoretical amplitude ≈ 2'
+                    ))
+                    fig.add_trace(go.Scatter(
+                        x=mu_theory,
+                        y=-amplitude_theory,
+                        mode='lines',
+                        line=dict(color='red', dash='dash'),
+                        showlegend=False
+                    ))
+            
+            elif system == "Hénon Map":
+                # Fixed point
+                fig.add_vline(x=1.0, line_dash="dash", line_color="red", opacity=0.5)
+                fig.add_annotation(x=1.0, y=0.95, text="Fixed point", showarrow=False, textangle=-90, yref="paper")
+                
+                # Period-2 bifurcation
+                fig.add_vline(x=1.25, line_dash="dash", line_color="orange", opacity=0.5)
+                fig.add_annotation(x=1.25, y=0.05, text="Period-2", showarrow=False, textangle=-90, yref="paper")
+                
+                # Chaos onset
+                fig.add_vline(x=1.368, line_dash="dash", line_color="purple", opacity=0.5)
+                fig.add_annotation(x=1.368, y=0.95, text="Chaos onset", showarrow=False, textangle=-90, yref="paper")
         
         st.plotly_chart(fig, use_container_width=True)
 
