@@ -5589,6 +5589,106 @@ with tabs[3]:  # Lyapunov Exponents tab
         """)
                 
 
+# ============================================
+# TAB 5: HOPF EXPLORER
+# ============================================
 with tabs[4]:
     st.header("Hopf Explorer")
-    st.write("Coming soon...")
+    st.write("Visualize the birth of oscillations through a Hopf bifurcation — "
+             "inspired by my undergraduate thesis on slow passages through Hopf bifurcations.")
+
+    # ----- Controls -----
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        alpha = st.slider("α (bifurcation parameter)", -1.0, 2.0, 0.0, 0.01)
+        slow_passage = st.checkbox("Enable slow passage (α(t) varies slowly)", False)
+    with col2:
+        eps = st.slider("ε (rate of slow passage)", 0.001, 0.1, 0.01, 0.001, disabled=not slow_passage)
+        t_max = st.slider("Simulation time", 10.0, 100.0, 50.0, 1.0)
+    with col3:
+        dt = st.slider("Time step (Δt)", 0.001, 0.05, 0.01, 0.001)
+        x0 = st.slider("Initial x₀", -1.0, 1.0, 0.1, 0.05)
+        y0 = st.slider("Initial y₀", -1.0, 1.0, 0.0, 0.05)
+
+    # ----- Define system -----
+    def hopf_system(t, state, alpha, slow_passage=False, eps=0.01):
+        x, y = state
+        a = alpha + eps*t if slow_passage else alpha
+        dxdt = a*x - y - x*(x**2 + y**2)
+        dydt = x + a*y - y*(x**2 + y**2)
+        return [dxdt, dydt]
+
+    def integrate_hopf(x0, y0, alpha, t_max, dt, slow_passage=False, eps=0.01):
+        t_eval = np.arange(0, t_max, dt)
+        sol = solve_ivp(
+            hopf_system,
+            [0, t_max],
+            [x0, y0],
+            t_eval=t_eval,
+            args=(alpha, slow_passage, eps),
+            rtol=1e-8,
+            atol=1e-10
+        )
+        return sol.t, sol.y[0], sol.y[1]
+
+    # ----- Simulation -----
+    generate_hopf = st.button("▶️ Run Simulation", type="primary")
+    if generate_hopf:
+        with st.spinner("Simulating Hopf bifurcation..."):
+            t, x, y = integrate_hopf(x0, y0, alpha, t_max, dt, slow_passage, eps)
+            rho = np.sqrt(x**2 + y**2)
+
+        # Layout choice
+        view = st.radio("Select view",
+                        ["Phase Portrait (x-y)", "Time Evolution (x vs t)", "Radius ρ(t)"],
+                        horizontal=True)
+
+        fig = go.Figure()
+        if view == "Phase Portrait (x-y)":
+            fig.add_trace(go.Scatter(x=x, y=y, mode="lines", line=dict(color="blue")))
+            fig.update_layout(xaxis_title="x", yaxis_title="y", height=600)
+        elif view == "Time Evolution (x vs t)":
+            fig.add_trace(go.Scatter(x=t, y=x, mode="lines", line=dict(color="red")))
+            fig.update_layout(xaxis_title="t", yaxis_title="x(t)", height=600)
+        else:  # Radius
+            fig.add_trace(go.Scatter(x=t, y=rho, mode="lines", line=dict(color="green")))
+            fig.update_layout(xaxis_title="t", yaxis_title="ρ(t) = √(x²+y²)", height=600)
+
+        st.plotly_chart(fig, use_container_width=True)
+
+    else:
+        st.info("👆 Adjust parameters and click **Run Simulation** to explore Hopf bifurcations")
+
+    # ----- Theory section -----
+    with st.expander("📚 Learn More — Hopf Bifurcations & Slow Passage"):
+        st.markdown(r"""
+        ### 🌱 Hopf Bifurcation
+        A **Hopf bifurcation** occurs when a fixed point loses stability as a parameter α crosses a
+        critical value. In the **supercritical case**, a stable periodic orbit (limit cycle) emerges,
+        giving rise to sustained oscillations.
+
+        In the canonical normal form:
+        $$
+        \dot{x} = \alpha x - y - x(x^2+y^2), \quad 
+        \dot{y} = x + \alpha y - y(x^2+y^2),
+        $$
+        the equilibrium $(x,y)=(0,0)$ is stable for $\alpha<0$, loses stability at $\alpha=0$,
+        and gives rise to a stable limit cycle of radius $\sqrt{\alpha}$ for $\alpha>0$.
+
+        ### 🐌 Slow Passage
+        In my undergraduate thesis *Atravesando lentamente una bifurcación de Hopf*, I studied what happens
+        when the parameter $\alpha$ evolves slowly in time:
+        $$
+        \alpha(t) = \alpha_0 + \varepsilon t, \qquad \varepsilon \ll 1.
+        $$
+        In this setting, oscillations appear **delayed** relative to the static bifurcation point:
+        the system remains near the unstable equilibrium for some time after $\alpha=0$, before
+        oscillations finally grow. This is known as the **delay of bifurcation** or
+        **dynamic Hopf bifurcation**.
+
+        ### 🔍 What to Explore
+        - Vary α and watch the fixed point transition into a limit cycle.
+        - Enable *slow passage* and observe how oscillations start later than expected.
+        - Compare time series $x(t)$ with the radius $\rho(t)$ to clearly see the onset of periodicity.
+        """)
+
