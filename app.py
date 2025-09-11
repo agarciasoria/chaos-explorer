@@ -2924,7 +2924,386 @@ with tabs[3]:  # Lyapunov Exponents tab
                 with col3:
                     st.metric("Min LLE", f"{min(lyapunov_values):.4f}")
             
-            # [Continue with other systems - Hénon Map, etc.]
+            elif system == "Hénon Map":
+                a_values = np.linspace(a_min, a_max, n_params)
+                lyapunov_values = []
+                
+                progress_bar = st.progress(0)
+                
+                for i, a in enumerate(a_values):
+                    # Initial condition
+                    x, y = 0.0, 0.0
+                    
+                    # Skip transient
+                    for _ in range(int(iterations * discard_transient / 100)):
+                        x_new = 1 - a * x**2 + y
+                        y_new = b_henon * x
+                        x, y = x_new, y_new
+                    
+                    # Compute Lyapunov using Jacobian method
+                    lyap_sum = 0
+                    valid_iterations = 0
+                    
+                    for _ in range(iterations):
+                        # Check if point escaped to infinity
+                        if abs(x) > 1e6 or abs(y) > 1e6:
+                            break
+                            
+                        # Jacobian matrix
+                        J = np.array([[-2*a*x, 1],
+                                    [b_henon, 0]])
+                        
+                        # Eigenvalues
+                        eigenvalues = np.linalg.eigvals(J)
+                        max_eigenvalue = np.max(np.abs(eigenvalues))
+                        
+                        if max_eigenvalue > 0:
+                            lyap_sum += np.log(max_eigenvalue)
+                            valid_iterations += 1
+                        
+                        # Update map
+                        x_new = 1 - a * x**2 + y
+                        y_new = b_henon * x
+                        x, y = x_new, y_new
+                    
+                    if valid_iterations > 0:
+                        lyapunov_values.append(lyap_sum / valid_iterations)
+                    else:
+                        lyapunov_values.append(np.nan)
+                    
+                    progress_bar.progress((i + 1) / n_params)
+                
+                progress_bar.empty()
+                
+                # Create plot
+                fig = go.Figure()
+                
+                # Add Lyapunov exponent trace
+                fig.add_trace(go.Scatter(
+                    x=a_values,
+                    y=lyapunov_values,
+                    mode='lines',
+                    line=dict(color='blue', width=2),
+                    name='Largest Lyapunov Exponent'
+                ))
+                
+                # Add zero line
+                fig.add_hline(y=0, line_dash="dash", line_color="red", opacity=0.5)
+                
+                # Color regions
+                max_lyap = np.nanmax(lyapunov_values)
+                min_lyap = np.nanmin(lyapunov_values)
+                
+                if max_lyap > 0:
+                    fig.add_hrect(y0=0, y1=max_lyap * 1.1, 
+                                fillcolor="red", opacity=0.1, 
+                                annotation_text="Chaotic", annotation_position="top right")
+                if min_lyap < 0:
+                    fig.add_hrect(y0=min_lyap * 1.1, y1=0, 
+                                fillcolor="green", opacity=0.1, 
+                                annotation_text="Stable", annotation_position="bottom right")
+                
+                if show_theory:
+                    # Add known bifurcation points
+                    fig.add_vline(x=0.3675, line_dash="dash", line_color="orange", opacity=0.5)
+                    fig.add_annotation(x=0.3675, y=0.1, text="Period-2", textangle=-90)
+                    
+                    fig.add_vline(x=1.4, line_dash="dash", line_color="purple", opacity=0.5)
+                    fig.add_annotation(x=1.4, y=0.1, text="Standard Hénon", textangle=-90)
+                
+                fig.update_layout(
+                    title=f"Largest Lyapunov Exponent vs a (Hénon Map, b = {b_henon})",
+                    xaxis_title="a parameter",
+                    yaxis_title="Largest Lyapunov Exponent",
+                    height=600,
+                    template="plotly_white"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Show interpretation guide
+                with st.expander("📖 How to interpret this plot", expanded=True):
+                    st.markdown(f"""
+                    **Key observations:**
+                    - The Hénon map exhibits complex behavior as 'a' varies
+                    - For b = {b_henon}, the map contracts area by factor {b_henon}
+                    - Standard parameters (a=1.4, b=0.3) produce the famous Hénon attractor
+                    
+                    **Physical meaning:**
+                    - This map models folding and stretching in phase space
+                    - Positive LLE indicates chaotic dynamics on a strange attractor
+                    - The sum of both Lyapunov exponents equals ln(b) = {np.log(b_henon):.3f}
+                    """)
+                
+                # Show statistics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Max LLE", f"{np.nanmax(lyapunov_values):.4f}")
+                with col2:
+                    chaotic_fraction = np.sum(np.array(lyapunov_values) > 0) / len([v for v in lyapunov_values if not np.isnan(v)])
+                    st.metric("Chaotic fraction", f"{chaotic_fraction:.1%}")
+                with col3:
+                    st.metric("Min LLE", f"{np.nanmin(lyapunov_values):.4f}")
+            
+            elif system == "Duffing Oscillator":
+                gamma_values = np.linspace(gamma_min, gamma_max, n_params)
+                lyapunov_values = []
+                
+                progress_bar = st.progress(0)
+                dt_duff = 0.01
+                
+                for i, gamma in enumerate(gamma_values):
+                    # Initial conditions
+                    state = np.array([0.1, 0.0])
+                    phase = 0.0
+                    perturbation = np.array([1e-8, 1e-8])
+                    perturbation /= np.linalg.norm(perturbation)
+                    
+                    # Skip transient
+                    transient_steps = int(integration_time * discard_transient / 100 / dt_duff)
+                    for _ in range(transient_steps):
+                        x, x_dot = state
+                        x_ddot = -delta * x_dot - alpha * x - beta_duff * x**3 + gamma * np.cos(omega * phase)
+                        state[0] += x_dot * dt_duff
+                        state[1] += x_ddot * dt_duff
+                        phase += omega * dt_duff
+                    
+                    # Compute Lyapunov
+                    lyap_sum = 0
+                    n_renorm = 0
+                    t = 0
+                    
+                    while t < integration_time:
+                        # Current and perturbed states
+                        x, x_dot = state
+                        perturbed = state + perturbation
+                        x_p, x_dot_p = perturbed
+                        
+                        # Dynamics
+                        x_ddot = -delta * x_dot - alpha * x - beta_duff * x**3 + gamma * np.cos(omega * phase)
+                        x_ddot_p = -delta * x_dot_p - alpha * x_p - beta_duff * x_p**3 + gamma * np.cos(omega * phase)
+                        
+                        # Update states
+                        state[0] += x_dot * dt_duff
+                        state[1] += x_ddot * dt_duff
+                        perturbed[0] += x_dot_p * dt_duff
+                        perturbed[1] += x_ddot_p * dt_duff
+                        
+                        # Update perturbation
+                        perturbation = perturbed - state
+                        
+                        # Renormalize
+                        if (n_renorm + 1) * 1.0 <= t:  # Every 1 time unit
+                            d = np.linalg.norm(perturbation)
+                            if d > 0:
+                                lyap_sum += np.log(d)
+                                perturbation /= d
+                                n_renorm += 1
+                        
+                        phase += omega * dt_duff
+                        t += dt_duff
+                    
+                    if n_renorm > 0:
+                        lyapunov_values.append(lyap_sum / n_renorm)
+                    else:
+                        lyapunov_values.append(0.0)
+                    
+                    progress_bar.progress((i + 1) / n_params)
+                
+                progress_bar.empty()
+                
+                # Create plot
+                fig = go.Figure()
+                
+                fig.add_trace(go.Scatter(
+                    x=gamma_values,
+                    y=lyapunov_values,
+                    mode='lines',
+                    line=dict(color='blue', width=2),
+                    name='Largest Lyapunov Exponent'
+                ))
+                
+                fig.add_hline(y=0, line_dash="dash", line_color="red", opacity=0.5)
+                
+                # Color regions
+                if max(lyapunov_values) > 0:
+                    fig.add_hrect(y0=0, y1=max(lyapunov_values) * 1.1, 
+                                fillcolor="red", opacity=0.1, 
+                                annotation_text="Chaotic", annotation_position="top right")
+                if min(lyapunov_values) < 0:
+                    fig.add_hrect(y0=min(lyapunov_values) * 1.1, y1=0, 
+                                fillcolor="green", opacity=0.1, 
+                                annotation_text="Periodic", annotation_position="bottom right")
+                
+                fig.update_layout(
+                    title=f"Largest Lyapunov Exponent vs γ (Duffing Oscillator)",
+                    xaxis_title="Forcing amplitude γ",
+                    yaxis_title="Largest Lyapunov Exponent",
+                    height=600,
+                    template="plotly_white"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Show interpretation guide
+                with st.expander("📖 How to interpret this plot", expanded=True):
+                    st.markdown(f"""
+                    **Key observations:**
+                    - Chaos emerges as forcing amplitude γ increases
+                    - Multiple transitions between periodic and chaotic behavior
+                    - Complex structure due to coexisting attractors
+                    
+                    **System parameters:**
+                    - Damping δ = {delta}
+                    - Stiffness α = {alpha}, β = {beta_duff}
+                    - Driving frequency ω = {omega}
+                    
+                    **Physical meaning:**
+                    - Models nonlinear vibrations in mechanical systems
+                    - Chaos indicates unpredictable oscillations
+                    - Important for understanding structural dynamics
+                    """)
+                
+                # Show statistics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Max LLE", f"{max(lyapunov_values):.4f}")
+                with col2:
+                    chaotic_fraction = sum(1 for l in lyapunov_values if l > 0) / len(lyapunov_values)
+                    st.metric("Chaotic fraction", f"{chaotic_fraction:.1%}")
+                with col3:
+                    st.metric("Min LLE", f"{min(lyapunov_values):.4f}")
+            
+            elif system == "Van der Pol Oscillator":
+                mu_values = np.linspace(mu_min, mu_max, n_params)
+                lyapunov_values = []
+                
+                progress_bar = st.progress(0)
+                dt_vdp = 0.01
+                
+                for i, mu in enumerate(mu_values):
+                    # Initial condition on approximate limit cycle
+                    if mu < 0.1:
+                        state = np.array([2.0, 0.0])
+                    else:
+                        A = 2.0 * (1 - 1/(8*mu))
+                        state = np.array([A, 0.0])
+                    
+                    perturbation = np.array([1e-8, 1e-8])
+                    perturbation /= np.linalg.norm(perturbation)
+                    
+                    # Skip transient
+                    transient_steps = int(integration_time * discard_transient / 100 / dt_vdp)
+                    for _ in range(transient_steps):
+                        x, y = state
+                        dx = y
+                        dy = mu * (1 - x**2) * y - x
+                        state[0] += dx * dt_vdp
+                        state[1] += dy * dt_vdp
+                    
+                    # Compute Lyapunov
+                    lyap_sum = 0
+                    n_renorm = 0
+                    t = 0
+                    
+                    while t < integration_time:
+                        # Current and perturbed states
+                        x, y = state
+                        perturbed = state + perturbation
+                        x_p, y_p = perturbed
+                        
+                        # Dynamics
+                        dx = y
+                        dy = mu * (1 - x**2) * y - x
+                        dx_p = y_p
+                        dy_p = mu * (1 - x_p**2) * y_p - x_p
+                        
+                        # Update
+                        state[0] += dx * dt_vdp
+                        state[1] += dy * dt_vdp
+                        perturbed[0] += dx_p * dt_vdp
+                        perturbed[1] += dy_p * dt_vdp
+                        
+                        perturbation = perturbed - state
+                        
+                        # Renormalize
+                        if (n_renorm + 1) * 1.0 <= t:
+                            d = np.linalg.norm(perturbation)
+                            if d > 0:
+                                lyap_sum += np.log(d)
+                                perturbation /= d
+                                n_renorm += 1
+                        
+                        t += dt_vdp
+                    
+                    if n_renorm > 0:
+                        lyapunov_values.append(lyap_sum / n_renorm)
+                    else:
+                        lyapunov_values.append(0.0)
+                    
+                    progress_bar.progress((i + 1) / n_params)
+                
+                progress_bar.empty()
+                
+                # Create plot
+                fig = go.Figure()
+                
+                fig.add_trace(go.Scatter(
+                    x=mu_values,
+                    y=lyapunov_values,
+                    mode='lines',
+                    line=dict(color='blue', width=2),
+                    name='Largest Lyapunov Exponent'
+                ))
+                
+                fig.add_hline(y=0, line_dash="dash", line_color="red", opacity=0.5)
+                
+                # The Van der Pol oscillator should have LLE ≤ 0
+                fig.add_hrect(y0=min(lyapunov_values) * 1.1, y1=0.1, 
+                            fillcolor="green", opacity=0.1, 
+                            annotation_text="Limit Cycle", annotation_position="top right")
+                
+                fig.update_layout(
+                    title="Largest Lyapunov Exponent vs μ (Van der Pol Oscillator)",
+                    xaxis_title="μ parameter",
+                    yaxis_title="Largest Lyapunov Exponent",
+                    height=600,
+                    template="plotly_white"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Show interpretation guide
+                with st.expander("📖 How to interpret this plot", expanded=True):
+                    st.markdown("""
+                    **Important:** The Van der Pol oscillator has a globally attracting limit cycle for μ > 0.
+                    
+                    **What the LLE tells you:**
+                    - LLE ≈ 0: You're on the limit cycle (marginally stable)
+                    - LLE < 0: Trajectory is converging to the limit cycle
+                    - The Van der Pol oscillator cannot exhibit chaos (LLE always ≤ 0)
+                    
+                    **Physical meaning:**
+                    - Models self-sustained oscillations (e.g., electronic circuits)
+                    - μ controls the nonlinearity strength
+                    - Large μ creates relaxation oscillations
+                    """)
+                
+                # Show statistics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Max LLE", f"{max(lyapunov_values):.4f}")
+                with col2:
+                    st.metric("Mean LLE", f"{np.mean(lyapunov_values):.4f}")
+                with col3:
+                    st.metric("Min LLE", f"{min(lyapunov_values):.4f}")
+                
+                 # Note about Van der Pol
+                st.info("""
+                **Note:** All Lyapunov exponents should be ≤ 0 for the Van der Pol oscillator 
+                since it has a globally stable limit cycle. Positive values indicate numerical errors
+                or insufficient integration time. The system CANNOT exhibit chaos.
+                """)
             
         elif viz_type == "Convergence Plot":
             # Show convergence of Lyapunov exponent over time
