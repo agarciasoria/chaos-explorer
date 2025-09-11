@@ -2446,7 +2446,7 @@ with tabs[2]:
             """
         )
 
-with tabs[2]:  # Lyapunov Exponents tab
+with tabs[3]:  # Lyapunov Exponents tab
     st.header("Lyapunov Exponents Analysis")
     st.write("Explore how sensitive dynamical systems are to initial conditions through Lyapunov exponents.")
     
