@@ -31,6 +31,61 @@ def integrate_lorenz(x0, y0, z0, sigma, rho, beta, t_max, dt):
     )
     return sol.t, sol.y[0], sol.y[1], sol.y[2]
 
+def analyze_duffing_bifurcations(gamma_vals, x_vals, delta, alpha, beta, omega):
+    """Automatically detect bifurcation points from the data"""
+    bifurcation_points = {}
+    
+    # Group data by parameter value
+    from collections import defaultdict
+    param_groups = defaultdict(list)
+    for g, x in zip(gamma_vals, x_vals):
+        param_groups[g].append(x)
+    
+    # Analyze each parameter value
+    gamma_sorted = sorted(param_groups.keys())
+    periods = []
+    
+    for g in gamma_sorted:
+        values = param_groups[g]
+        if len(values) > 2:
+            # Detect unique values (approximate due to numerical errors)
+            unique_vals = []
+            for v in values:
+                is_new = True
+                for u in unique_vals:
+                    if abs(v - u) < 0.01:  # tolerance
+                        is_new = False
+                        break
+                if is_new:
+                    unique_vals.append(v)
+            periods.append((g, len(unique_vals)))
+    
+    # Detect transitions
+    if periods:
+        last_period = periods[0][1]
+        for g, p in periods:
+            if p != last_period and p > last_period:
+                if last_period == 1 and p == 2:
+                    bifurcation_points['first_bifurcation'] = g
+                elif p > 3 and 'chaos_onset' not in bifurcation_points:
+                    bifurcation_points['chaos_onset'] = g
+            last_period = p
+    
+    # Analytical approximations for Duffing oscillator
+    if alpha < 0:  # Double-well potential
+        # Linear resonance approximation
+        omega_0 = np.sqrt(-alpha)
+        if abs(omega - omega_0) < 0.3:  # Near resonance
+            bifurcation_points['resonance'] = 2 * delta * omega_0
+        
+        # Approximate chaos threshold (empirical formula)
+        if delta > 0:
+            bifurcation_points['chaos_threshold'] = 0.3 * np.sqrt(-alpha) / delta
+    
+    return bifurcation_points
+
+
+
 # ---------- Page setup ----------
 st.set_page_config(page_title="Chaos & Nonlinear Dynamics Explorer", layout="wide")
 
@@ -1808,7 +1863,14 @@ with tabs[2]:
                         progress_bar.progress((i + 1) / gamma_points)
                 
                 progress_bar.empty()
-                
+                # STORE PARAMETERS for later use
+                st.session_state.duffing_params = {
+                    'delta': delta_duff,
+                    'alpha': alpha_duff,
+                    'beta': beta_duff,
+                    'omega': omega_duff
+                }
+    
                 # Create plot
                 fig = go.Figure()
                 if bifurcation_data:
@@ -1835,60 +1897,41 @@ with tabs[2]:
                     template="plotly_white"
                 )
                 
-                # Add annotations for key transitions - THIS MUST BE BEFORE st.plotly_chart()
+                # Add annotations for key transitions 
                 if show_theory and bifurcation_data:
-                    # Add parameter info
-                    param_text = f"δ={delta_duff:.2f}, α={alpha_duff:.1f}, β={beta_duff:.1f}, ω={omega_duff:.2f}"
-                    fig.add_annotation(
-                        x=0.5, y=0.02, 
-                        text=param_text,
-                        xref="paper", yref="paper", 
-                        showarrow=False,
-                        bgcolor="rgba(255,255,255,0.8)", 
-                        font=dict(size=10)
+                    # NEW: Use the analysis function
+                    param_min = min(gamma_vals)
+                    param_max = max(gamma_vals)
+                    
+                    bifurcations = analyze_duffing_bifurcations(
+                        gamma_vals, x_vals, 
+                        delta_duff, alpha_duff, beta_duff, omega_duff
                     )
                     
-                    # For your specific parameter range (0.1 to 0.5)
-                    # Early region - usually stable
-                    fig.add_annotation(
-                        x=0.15, y=0.9,
-                        text="Stable periodic",
-                        showarrow=True, 
-                        arrowhead=2,
-                        ax=0, ay=-40,
-                        bgcolor="rgba(255,255,255,0.8)"
-                    )
-                    
-                    # Bifurcation region (visible around 0.28-0.32)
-                    fig.add_vline(x=0.28, line_dash="dash", line_color="orange", opacity=0.5)
-                    fig.add_annotation(
-                        x=0.28, y=0.5,
-                        text="Bifurcation cascade",
-                        showarrow=False,
-                        textangle=-90,
-                        yref="paper",
-                        bgcolor="rgba(255,255,255,0.8)"
-                    )
-                    
-                    # Chaotic region (visible after 0.32)
-                    fig.add_annotation(
-                        x=0.35, y=0.1,
-                        text="Chaotic dynamics",
-                        showarrow=True,
-                        arrowhead=2,
-                        ax=30, ay=30,
-                        bgcolor="rgba(255,255,255,0.8)"
-                    )
-                    
-                    # Period-3 window (visible around 0.365)
-                    fig.add_vline(x=0.365, line_dash="dash", line_color="blue", opacity=0.5)
-                    fig.add_annotation(
-                        x=0.365, y=0.95,
-                        text="Period-3",
-                        showarrow=False,
-                        yref="paper",
-                        bgcolor="rgba(255,255,255,0.8)"
-                    )
+                    # Add detected bifurcations
+                    for bif_type, bif_value in bifurcations.items():
+                        if param_min <= bif_value <= param_max:
+                            color = {
+                                'first_bifurcation': 'orange',
+                                'chaos_onset': 'red',
+                                'resonance': 'green',
+                                'chaos_threshold': 'purple'
+                            }.get(bif_type, 'gray')
+                            
+                            label = {
+                                'first_bifurcation': 'First bifurcation',
+                                'chaos_onset': 'Chaos onset',
+                                'resonance': 'Linear resonance',
+                                'chaos_threshold': 'Chaos threshold'
+                            }.get(bif_type, bif_type)
+                            
+                            fig.add_vline(x=bif_value, line_dash="dash", line_color=color, opacity=0.5)
+                            fig.add_annotation(
+                                x=bif_value, y=0.95, 
+                                text=label,
+                                showarrow=False, textangle=-90, yref="paper",
+                                bgcolor="rgba(255,255,255,0.8)"
+                            )
                 
                 st.plotly_chart(fig, use_container_width=True)
                 st.session_state.bifurcation_data = bifurcation_data
@@ -2133,54 +2176,93 @@ with tabs[2]:
                 fig.add_annotation(x=99.65, y=0.95, text="Periodic window", showarrow=False, textangle=-90, yref="paper")
             
             elif system == "Duffing Oscillator":
-                param_min = min(param_vals)
-                param_max = max(param_vals)
-                param_range = param_max - param_min
-                
-                # Adaptive annotations based on typical Duffing behavior
-                # These percentages are approximate for typical Duffing systems
-                
-                # Stable region (typically first 40-50% of range before chaos)
-                stable_point = param_min + 0.3 * param_range
-                fig.add_annotation(
-                    x=stable_point, y=0.9,
-                    text="Stable periodic",
-                    showarrow=True, 
-                    arrowhead=2,
-                    ax=0, ay=-40,
-                    bgcolor="rgba(255,255,255,0.8)"
-                )
-                
-                # Bifurcations (typically around 50-60% through range)
-                bifurc_point = param_min + 0.55 * param_range
-                fig.add_vline(x=bifurc_point, line_dash="dash", line_color="orange", opacity=0.5)
-                fig.add_annotation(
-                    x=bifurc_point, y=0.5,
-                    text="Bifurcations",
-                    showarrow=False,
-                    textangle=-90,
-                    yref="paper",
-                    bgcolor="rgba(255,255,255,0.8)"
-                )
-                
-                # Chaos (typically around 60-70% through range)
-                chaos_point = param_min + 0.65 * param_range
-                fig.add_annotation(
-                    x=chaos_point, y=0.1,
-                    text="Chaos",
-                    showarrow=True,
-                    arrowhead=2,
-                    ax=20, ay=20,
-                    bgcolor="rgba(255,255,255,0.8)"
-                )
-                
-                # Note about parameter dependence
-                fig.add_annotation(
-                    x=0.98, y=0.02, xref="paper", yref="paper",
-                    text=f"γ ∈ [{param_min:.2f}, {param_max:.2f}]",
-                    showarrow=False, font=dict(size=9),
-                    bgcolor="rgba(255,255,200,0.8)"
-                )
+                # Get stored parameters
+                if 'duffing_params' in st.session_state:
+                    params = st.session_state.duffing_params
+                    
+                    # Use the analysis function
+                    bifurcations = analyze_duffing_bifurcations(
+                        param_vals, state_vals,
+                        params['delta'], params['alpha'], 
+                        params['beta'], params['omega']
+                    )
+                    
+                    # Add detected bifurcations
+                    for bif_type, bif_value in bifurcations.items():
+                        param_min = min(param_vals)
+                        param_max = max(param_vals)
+                        
+                        if param_min <= bif_value <= param_max:
+                            color = {
+                                'first_bifurcation': 'orange',
+                                'chaos_onset': 'red',
+                                'resonance': 'green',
+                                'chaos_threshold': 'purple'
+                            }.get(bif_type, 'gray')
+                            
+                            label = {
+                                'first_bifurcation': 'First bifurcation',
+                                'chaos_onset': 'Chaos onset',
+                                'resonance': 'Linear resonance',
+                                'chaos_threshold': 'Chaos threshold'
+                            }.get(bif_type, bif_type)
+                            
+                            fig.add_vline(x=bif_value, line_dash="dash", line_color=color, opacity=0.5)
+                            fig.add_annotation(
+                                x=bif_value, y=0.95, 
+                                text=label,
+                                showarrow=False, textangle=-90, yref="paper",
+                                bgcolor="rgba(255,255,255,0.8)"
+                            )
+                else:
+                    param_min = min(param_vals)
+                    param_max = max(param_vals)
+                    param_range = param_max - param_min
+                    
+                    # Adaptive annotations based on typical Duffing behavior
+                    # These percentages are approximate for typical Duffing systems
+                    
+                    # Stable region (typically first 40-50% of range before chaos)
+                    stable_point = param_min + 0.3 * param_range
+                    fig.add_annotation(
+                        x=stable_point, y=0.9,
+                        text="Stable periodic",
+                        showarrow=True, 
+                        arrowhead=2,
+                        ax=0, ay=-40,
+                        bgcolor="rgba(255,255,255,0.8)"
+                    )
+                    
+                    # Bifurcations (typically around 50-60% through range)
+                    bifurc_point = param_min + 0.55 * param_range
+                    fig.add_vline(x=bifurc_point, line_dash="dash", line_color="orange", opacity=0.5)
+                    fig.add_annotation(
+                        x=bifurc_point, y=0.5,
+                        text="Bifurcations",
+                        showarrow=False,
+                        textangle=-90,
+                        yref="paper",
+                        bgcolor="rgba(255,255,255,0.8)"
+                    )
+                    
+                    # Chaos (typically around 60-70% through range)
+                    chaos_point = param_min + 0.65 * param_range
+                    fig.add_annotation(
+                        x=chaos_point, y=0.1,
+                        text="Chaos",
+                        showarrow=True,
+                        arrowhead=2,
+                        ax=20, ay=20,
+                        bgcolor="rgba(255,255,255,0.8)"
+                    )
+                    
+                    # Note about parameter dependence
+                    fig.add_annotation(
+                        x=0.98, y=0.02, xref="paper", yref="paper",
+                        text=f"γ ∈ [{param_min:.2f}, {param_max:.2f}]",
+                        showarrow=False, font=dict(size=9),
+                        bgcolor="rgba(255,255,200,0.8)"
+                    )
             
             elif system == "Van der Pol Oscillator":
                 # Hopf bifurcation at μ=0
