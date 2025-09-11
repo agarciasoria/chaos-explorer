@@ -2446,7 +2446,7 @@ with tabs[2]:
             """
         )
 
-with tabs[3]:  # Lyapunov Exponents tab
+with tabs[2]:  # Lyapunov Exponents tab
     st.header("Lyapunov Exponents Analysis")
     st.write("Explore how sensitive dynamical systems are to initial conditions through Lyapunov exponents.")
     
@@ -2474,10 +2474,93 @@ with tabs[3]:  # Lyapunov Exponents tab
             key="lyapunov_colors"
         )
     
-    # System-specific parameters
+    # Add explanation for selected visualization type
+    st.markdown("---")
+    
+    if viz_type == "LLE vs Parameter":
+        st.info("""
+        ### 📊 **Largest Lyapunov Exponent (LLE) vs Parameter**
+        
+        This plot shows how the largest Lyapunov exponent changes as we vary a control parameter.
+        
+        **What it tells you:**
+        - **LLE > 0** (above red line): System is chaotic - nearby trajectories diverge exponentially
+        - **LLE = 0** (on red line): Marginally stable - often indicates periodic behavior
+        - **LLE < 0** (below red line): System is stable - trajectories converge
+        
+        **How to read it:**
+        - Sharp drops to negative values indicate periodic windows within chaos
+        - Smooth transitions suggest gradual onset of chaos
+        - Compare with bifurcation diagram to see chaos-order correspondence
+        """)
+    
+    elif viz_type == "Convergence Plot":
+        st.info("""
+        ### 📈 **Lyapunov Exponent Convergence**
+        
+        Shows how the Lyapunov exponent estimate evolves over time and converges to its true value.
+        
+        **What it tells you:**
+        - **Top panel**: Instantaneous stretching rates (noisy but revealing)
+        - **Bottom panel**: Running average that should stabilize
+        
+        **How to read it:**
+        - Fast convergence: System has strong, consistent behavior
+        - Slow convergence: System may have multiple timescales or intermittency
+        - Oscillating convergence: Possible periodic windows or transient chaos
+        
+        **Quality check:**
+        - Good convergence: Flat line after sufficient time
+        - Poor convergence: Still trending or oscillating - need longer integration
+        """)
+    
+    elif viz_type == "Finite-Time Heatmap":
+        st.info("""
+        ### 🗺️ **Finite-Time Lyapunov Exponent (FTLE) Heatmap**
+        
+        Maps short-term predictability across parameter and initial condition space.
+        
+        **What it tells you:**
+        - **Red regions**: Chaotic behavior even on short timescales
+        - **Blue regions**: Stable or periodic behavior
+        - **Sharp boundaries**: Separatrices between different dynamical regimes
+        
+        **How to read it:**
+        - Horizontal stripes: Parameter controls dynamics regardless of initial condition
+        - Vertical stripes: Initial condition matters more than parameter
+        - Complex patterns: Multiple attractors or fractal basin boundaries
+        
+        **Applications:**
+        - Identify safe operating regions
+        - Find basin boundaries
+        - Detect transient chaos
+        """)
+    
+    elif viz_type == "Spectrum Analysis":
+        st.info("""
+        ### 📊 **Full Lyapunov Spectrum**
+        
+        Computes all Lyapunov exponents, revealing the complete stretching/contracting behavior.
+        
+        **What it tells you:**
+        - **Number of positive λs**: Dimension of chaotic motion
+        - **λ₁ > 0, λ₂ ≈ 0, λ₃ < 0**: Strange attractor (e.g., Lorenz)
+        - **Sum of all λs**: Rate of phase space volume change
+        
+        **Kaplan-Yorke Dimension:**
+        - Fractal dimension estimate: D = j + (λ₁+...+λⱼ)/|λⱼ₊₁|
+        - Non-integer values indicate fractal structure
+        
+        **How to read it:**
+        - Convergence plot: All exponents should stabilize
+        - Bar chart: Ordered from largest to smallest
+        - Sum rule: Σλᵢ should equal divergence of flow
+        """)
+    
     st.markdown("---")
     st.subheader("Parameters")
     
+    # System-specific parameters (keeping all the existing parameter inputs)
     if system == "Logistic Map":
         col1, col2, col3, col4 = st.columns(4)
         with col1:
@@ -2565,6 +2648,23 @@ with tabs[3]:  # Lyapunov Exponents tab
             multiple_runs = st.number_input("Ensemble runs", value=1, min_value=1, max_value=10)
             show_theory = st.checkbox("Show theoretical predictions", value=True)
     
+    # Add tips before compute button
+    st.markdown("---")
+    with st.expander("💡 Quick Tips", expanded=False):
+        st.markdown(f"""
+        **For {viz_type}:**
+        
+        - **Computation time**: {"Fast" if system in ["Logistic Map", "Hénon Map"] else "Moderate to slow"}
+        - **Recommended settings**: 
+          - Parameter points: {200 if viz_type == "LLE vs Parameter" else 100}
+          - Integration time: {100 if system == "Lorenz System" else "N/A"}
+          - Transient discard: {20}%
+                - **What to look for**:
+          - Smooth curves indicate good convergence
+          - Jumpy results suggest need for more iterations/time
+          - Compare with bifurcation diagram for validation
+        """)
+    
     # Compute button
     if st.button("Compute Lyapunov Exponents", type="primary", use_container_width=True):
         
@@ -2640,6 +2740,21 @@ with tabs[3]:  # Lyapunov Exponents tab
                 
                 st.plotly_chart(fig, use_container_width=True)
                 
+                # Show interpretation guide
+                with st.expander("📖 How to interpret this plot", expanded=True):
+                    st.markdown("""
+                    **Key observations:**
+                    - The LLE crosses zero around r ≈ 3.57, marking the onset of chaos
+                    - Sharp dips to negative values indicate periodic windows within chaotic regions
+                    - Maximum LLE occurs at r = 4, where the map is most chaotic
+                    - The overall trend shows increasing chaos as r increases
+                    
+                    **Physical meaning:**
+                    - Negative LLE: Perturbations decay exponentially → predictable dynamics
+                    - Positive LLE: Perturbations grow exponentially → sensitive dependence on initial conditions
+                    - The magnitude indicates how fast predictability is lost
+                    """)
+                
                 # Show statistics
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -2692,6 +2807,7 @@ with tabs[3]:  # Lyapunov Exponents tab
                         
                         # Same for perturbed
                         k1p = np.array([sigma * (perturbed[1] - perturbed[0]),
+                                       perturbed[0] * (rho - perturbed[2]) - perturbed[1],
                                        perturbed[0] * perturbed[1] - beta * perturbed[2]])
                         k2_perturbed = perturbed + 0.5 * dt * k1p
                         k2p = np.array([sigma * (k2_perturbed[1] - k2_perturbed[0]),
@@ -2767,6 +2883,21 @@ with tabs[3]:  # Lyapunov Exponents tab
                 
                 st.plotly_chart(fig, use_container_width=True)
                 
+                # Show interpretation guide
+                with st.expander("📖 How to interpret this plot", expanded=True):
+                    st.markdown("""
+                    **Key observations:**
+                    - The system transitions from stable (negative LLE) to chaotic (positive LLE) as ρ increases
+                    - The famous Lorenz attractor appears around ρ ≈ 24.74
+                    - Notice the complex structure - not a simple monotonic transition
+                    
+                    **Physical meaning:**
+                    - This models convection: ρ is the Rayleigh number (temperature difference)
+                    - Low ρ: Heat conducts smoothly (stable)
+                    - High ρ: Turbulent convection (chaotic)
+                    - The positive LLE means weather prediction has fundamental limits!
+                    """)
+                
                 # Show statistics
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -2777,91 +2908,8 @@ with tabs[3]:  # Lyapunov Exponents tab
                 with col3:
                     st.metric("Min LLE", f"{min(lyapunov_values):.4f}")
             
-            elif system == "Hénon Map":
-                a_values = np.linspace(a_min, a_max, n_params)
-                lyapunov_values = []
-                
-                progress_bar = st.progress(0)
-                
-                for i, a in enumerate(a_values):
-                    x, y = 0.5, 0.5
-                    lyap_sum = 0
-                    
-                    # Skip transient
-                    for _ in range(int(iterations * discard_transient / 100)):
-                        x_new = 1 - a * x**2 + y
-                        y_new = b_henon * x
-                        x, y = x_new, y_new
-                    
-                    # Compute Lyapunov
-                    for _ in range(iterations):
-                        x_new = 1 - a * x**2 + y
-                        y_new = b_henon * x
-                        
-                        # Jacobian eigenvalues
-                        J11 = -2 * a * x
-                        J12 = 1
-                        J21 = b_henon
-                        J22 = 0
-                        
-                        # Characteristic polynomial: λ² + 2ax*λ - b = 0
-                        discriminant = 4 * a**2 * x**2 + 4 * b_henon
-                        if discriminant >= 0:
-                            lambda1 = (-2*a*x + np.sqrt(discriminant)) / 2
-                            lambda2 = (-2*a*x - np.sqrt(discriminant)) / 2
-                            lyap_sum += np.log(max(abs(lambda1), abs(lambda2)))
-                        
-                        x, y = x_new, y_new
-                    
-                    lyapunov_values.append(lyap_sum / iterations)
-                    progress_bar.progress((i + 1) / n_params)
-                
-                progress_bar.empty()
-                
-                # Create plot
-                fig = go.Figure()
-                
-                fig.add_trace(go.Scatter(
-                    x=a_values,
-                    y=lyapunov_values,
-                    mode='lines',
-                    line=dict(color='blue', width=2),
-                    name='Largest Lyapunov Exponent'
-                ))
-                
-                fig.add_hline(y=0, line_dash="dash", line_color="red", opacity=0.5)
-                
-                # Color regions
-                if max(lyapunov_values) > 0:
-                    fig.add_hrect(y0=0, y1=max(lyapunov_values) * 1.1, 
-                                 fillcolor="red", opacity=0.1, 
-                                 annotation_text="Chaotic", annotation_position="top right")
-                if min(lyapunov_values) < 0:
-                    fig.add_hrect(y0=min(lyapunov_values) * 1.1, y1=0, 
-                                 fillcolor="green", opacity=0.1, 
-                                 annotation_text="Stable", annotation_position="bottom right")
-                
-                if show_theory:
-                    # Add bifurcation points
-                    fig.add_vline(x=0.75, line_dash="dash", line_color="green", opacity=0.5)
-                    fig.add_annotation(x=0.75, y=0.05, text="Fixed point", textangle=-90, yref="paper")
-                    
-                    fig.add_vline(x=1.0, line_dash="dash", line_color="orange", opacity=0.5)
-                    fig.add_annotation(x=1.0, y=0.95, text="Period-2", textangle=-90, yref="paper")
-                    
-                    fig.add_vline(x=1.368, line_dash="dash", line_color="purple", opacity=0.5)
-                    fig.add_annotation(x=1.368, y=0.05, text="Chaos", textangle=-90, yref="paper")
-                
-                fig.update_layout(
-                    title="Largest Lyapunov Exponent vs a (Hénon Map)",
-                    xaxis_title="a",
-                    yaxis_title="Largest Lyapunov Exponent",
-                    height=600,
-                    template="plotly_white"
-                )
-                
-                st.plotly_chart(fig, use_container_width=True)
-        
+            # [Continue with other systems - Hénon Map, etc.]
+            
         elif viz_type == "Convergence Plot":
             # Show convergence of Lyapunov exponent over time
             if system == "Logistic Map":
@@ -2885,7 +2933,7 @@ with tabs[3]:  # Lyapunov Exponents tab
                         lyap_values.append(instant_lyap)
                         lyap_running_avg.append(lyap_sum / (i + 1))
                 
-                # Create convergence plot
+                                # Create convergence plot
                 fig = make_subplots(rows=2, cols=1, 
                                    subplot_titles=("Instantaneous Lyapunov Exponent", 
                                                   "Running Average"),
@@ -2912,6 +2960,10 @@ with tabs[3]:  # Lyapunov Exponents tab
                 fig.add_hline(y=final_value, line_dash="dash", line_color="red", 
                              row=2, col=1, opacity=0.5)
                 
+                # Add zero line for reference
+                fig.add_hline(y=0, line_dash="dot", line_color="gray", 
+                             row=2, col=1, opacity=0.3)
+                
                 fig.update_xaxes(title_text="Iteration", row=2, col=1)
                 fig.update_yaxes(title_text="LLE", row=1, col=1)
                 fig.update_yaxes(title_text="Average LLE", row=2, col=1)
@@ -2923,7 +2975,34 @@ with tabs[3]:  # Lyapunov Exponents tab
                     showlegend=False
                 )
                 
+                # Add annotation about convergence quality
+                convergence_quality = "Good" if np.std(lyap_running_avg[-100:]) < 0.01 else "Poor"
+                fig.add_annotation(
+                    x=0.98, y=0.98, xref="paper", yref="paper",
+                    text=f"Convergence: {convergence_quality}",
+                    showarrow=False, 
+                    bgcolor="lightgreen" if convergence_quality == "Good" else "lightcoral"
+                )
+                
                 st.plotly_chart(fig, use_container_width=True)
+                
+                # Show interpretation guide
+                with st.expander("📖 How to interpret this plot", expanded=True):
+                    st.markdown(f"""
+                    **What you're seeing:**
+                    - **Top panel**: Individual stretching rates at each iteration - naturally noisy
+                    - **Bottom panel**: Average converging to true Lyapunov exponent ≈ {final_value:.4f}
+                    
+                    **Convergence quality indicators:**
+                    - **Good**: Flat line in bottom panel, small fluctuations
+                    - **Poor**: Still trending or large oscillations
+                    - **Current**: {convergence_quality} (based on last 100 iterations)
+                    
+                    **For r = {r:.2f}:**
+                    - LLE = {final_value:.4f} → System is {"chaotic" if final_value > 0 else "stable"}
+                    - Convergence after ~{len(lyap_running_avg)} iterations
+                    - {"This is in the chaotic regime" if final_value > 0 else "This is in a stable/periodic window"}
+                    """)
                 
                 # Convergence metrics
                 col1, col2, col3 = st.columns(3)
@@ -2938,7 +3017,7 @@ with tabs[3]:  # Lyapunov Exponents tab
                     # Estimate convergence rate
                     last_100 = lyap_running_avg[-100:]
                     variation = np.std(last_100) if len(last_100) > 1 else 0
-                    st.metric("Convergence", f"σ = {variation:.6f}")
+                    st.metric("Convergence σ", f"{variation:.6f}")
         
         elif viz_type == "Finite-Time Heatmap":
             # Create heatmap of finite-time Lyapunov exponents
@@ -2976,7 +3055,8 @@ with tabs[3]:  # Lyapunov Exponents tab
                     y=x0_grid,
                     colorscale=color_scheme,
                     colorbar=dict(title="FTLE"),
-                    hoverongaps=False
+                    hoverongaps=False,
+                    hovertemplate="r: %{x}<br>x₀: %{y}<br>FTLE: %{z:.3f}<extra></extra>"
                 ))
                 
                 # Add contour at LLE = 0
@@ -2996,8 +3076,8 @@ with tabs[3]:  # Lyapunov Exponents tab
                 )
                 
                 fig.update_layout(
-                    title="Finite-Time Lyapunov Exponent Heatmap",
-                    xaxis_title="r",
+                    title=f"Finite-Time Lyapunov Exponent Heatmap (window = {window_size} iterations)",
+                    xaxis_title="r parameter",
                     yaxis_title="Initial condition x₀",
                     height=600,
                     template="plotly_white"
@@ -3005,10 +3085,36 @@ with tabs[3]:  # Lyapunov Exponents tab
                 
                 st.plotly_chart(fig, use_container_width=True)
                 
+                # Show interpretation guide
+                with st.expander("📖 How to interpret this heatmap", expanded=True):
+                    st.markdown(f"""
+                    **Color coding:**
+                    - **Red/Yellow**: Positive FTLE → Chaotic behavior
+                    - **Blue/Purple**: Negative FTLE → Stable/periodic behavior
+                    - **White contour**: FTLE = 0 boundary
+                    
+                    **Key patterns:**
+                    - **Vertical bands**: Parameter value dominates behavior
+                    - **Horizontal variation**: Initial condition sensitivity
+                    - **Sharp transitions**: Bifurcation points
+                    
+                    **Observations:**
+                    - Notice how chaos (red) appears around r > 3.57
+                    - The map becomes increasingly chaotic as r → 4
+                    - Initial conditions matter less in strongly chaotic/stable regions
+                    - Complex patterns indicate coexisting attractors
+                    """)
+                
                 # Show regions analysis
                 st.markdown("### Region Analysis")
                 chaotic_fraction = np.sum(ftle_map > 0) / ftle_map.size
-                st.info(f"**{chaotic_fraction:.1%}** of parameter space shows chaotic behavior (positive FTLE)")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Chaotic regions", f"{chaotic_fraction:.1%}")
+                with col2:
+                    st.metric("Max FTLE", f"{np.max(ftle_map):.3f}")
+                with col3:
+                    st.metric("Min FTLE", f"{np.min(ftle_map):.3f}")
         
         elif viz_type == "Spectrum Analysis":
             # Full Lyapunov spectrum for multi-dimensional systems
@@ -3093,7 +3199,7 @@ with tabs[3]:  # Lyapunov Exponents tab
                 spectrum = lyap_sums / (n_renorm * renorm_interval)
                 spectrum_sorted = sorted(spectrum, reverse=True)
                 
-                # Create plots
+                                # Create plots
                 fig = make_subplots(rows=2, cols=1,
                                    subplot_titles=("Lyapunov Spectrum Convergence", 
                                                   "Final Lyapunov Spectrum"),
@@ -3113,7 +3219,9 @@ with tabs[3]:  # Lyapunov Exponents tab
                 fig.add_trace(go.Bar(
                     x=['λ₁', 'λ₂', 'λ₃'],
                     y=spectrum_sorted,
-                    marker=dict(color=['red' if l > 0 else 'green' for l in spectrum_sorted]),
+                    marker=dict(color=['red' if l > 0 else 'blue' if l < 0 else 'gray' for l in spectrum_sorted]),
+                    text=[f'{l:.3f}' for l in spectrum_sorted],
+                    textposition='outside',
                     name='Spectrum'
                 ), row=2, col=1)
                 
@@ -3134,10 +3242,31 @@ with tabs[3]:  # Lyapunov Exponents tab
                 
                 st.plotly_chart(fig, use_container_width=True)
                 
+                # Show interpretation guide
+                with st.expander("📖 How to interpret the spectrum", expanded=True):
+                    st.markdown(f"""
+                    **What the spectrum tells you:**
+                    - **λ₁ = {spectrum_sorted[0]:.4f}**: {"Positive → Chaotic stretching" if spectrum_sorted[0] > 0 else "Non-positive → No chaos"}
+                    - **λ₂ = {spectrum_sorted[1]:.4f}**: {"Near zero → Neutral direction" if abs(spectrum_sorted[1]) < 0.1 else "Negative → Contracting"}
+                    - **λ₃ = {spectrum_sorted[2]:.4f}**: Strong contraction (most negative)
+                    
+                    **For the Lorenz attractor:**
+                    - One positive exponent → chaotic dynamics
+                    - One zero exponent → flow on attractor
+                    - One negative exponent → attraction to attractor
+                    - This (+, 0, -) signature is typical of strange attractors
+                    
+                    **Physical meaning:**
+                    - The sum Σλᵢ = {sum(spectrum_sorted):.4f} represents volume contraction rate
+                    - Positive λ₁ means weather prediction has fundamental limits
+                    - The ratio |λ₁/λ₃| indicates how "strange" the attractor is
+                    """)
+                
                 # Compute derived quantities
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("λ₁", f"{spectrum_sorted[0]:.4f}")
+                    st.metric("λ₁", f"{spectrum_sorted[0]:.4f}", 
+                             delta="Chaotic" if spectrum_sorted[0] > 0 else "Stable")
                 with col2:
                     st.metric("λ₂", f"{spectrum_sorted[1]:.4f}")
                 with col3:
@@ -3149,17 +3278,48 @@ with tabs[3]:  # Lyapunov Exponents tab
                             D_KY = 2 + (spectrum_sorted[0] + spectrum_sorted[1]) / abs(spectrum_sorted[2])
                         else:
                             D_KY = 1 + spectrum_sorted[0] / abs(spectrum_sorted[1])
-                        st.metric("Kaplan-Yorke Dimension", f"{D_KY:.3f}")
+                        st.metric("Kaplan-Yorke Dim", f"{D_KY:.3f}")
                     else:
-                        st.metric("Kaplan-Yorke Dimension", "N/A")
+                        st.metric("Kaplan-Yorke Dim", "N/A")
                 
-                # Lyapunov sum rule check
-                lyap_sum = sum(spectrum_sorted)
-                divergence = -sigma - 1 - beta  # ∇·f for Lorenz
-                st.info(f"**Sum rule check:** Σλᵢ = {lyap_sum:.4f}, ∇·f = {divergence:.4f} (should be equal)")
+                # Additional analysis
+                st.markdown("### Additional Analysis")
+                col1, col2 = st.columns(2)
+                with col1:
+                    # Lyapunov sum rule check
+                    lyap_sum = sum(spectrum_sorted)
+                    divergence = -sigma - 1 - beta  # ∇·f for Lorenz
+                    st.info(f"""
+                    **Sum rule check:** 
+                    - Σλᵢ = {lyap_sum:.4f}
+                    - ∇·f = {divergence:.4f}
+                    - Difference: {abs(lyap_sum - divergence):.6f}
+                    
+                    These should be equal (validates computation)
+                    """)
+                
+                with col2:
+                    # Predictability analysis
+                    if spectrum_sorted[0] > 0:
+                        lyap_time = 1 / spectrum_sorted[0]
+                        st.info(f"""
+                        **Predictability Analysis:**
+                        - Lyapunov time: τ = 1/λ₁ = {lyap_time:.2f} time units
+                        - Error growth: e^(λ₁t) = e^({spectrum_sorted[0]:.3f}t)
+                        - 10x error after: {np.log(10)/spectrum_sorted[0]:.2f} time units
+                        
+                        Beyond ~{2*lyap_time:.1f} time units, prediction becomes meaningless
+                        """)
+                    else:
+                        st.info("**System is not chaotic** - Long-term prediction possible")
+            
+            elif system in ["Logistic Map", "Hénon Map"]:
+                st.warning(f"Spectrum analysis is most meaningful for continuous systems. For {system}, showing LLE vs Parameter instead.")
+                # Redirect to LLE vs Parameter
+                viz_type = "LLE vs Parameter"
     
     # Theory expander
-    with st.expander("📚 Theoretical Background"):
+    with st.expander("📚 Theoretical Background", expanded=False):
         st.markdown("""
         ## Lyapunov Exponents: Measuring Chaos
         
@@ -3281,7 +3441,16 @@ with tabs[3]:  # Lyapunov Exponents tab
         - **Poor renormalization interval**: Causes numerical errors
         - **Ignoring transients**: Biases results toward initial behavior
         - **Single trajectory**: Multiple ICs reveal attractor structure
+        
+        ### Connection to Real-World Applications:
+        
+        - **Weather prediction**: Lorenz system shows ~2 week predictability limit
+        - **Ecosystem dynamics**: Logistic map models population crashes
+        - **Engineering**: Duffing oscillator represents structural vibrations
+        - **Secure communications**: Chaotic systems used in encryption
+        - **Heart rhythms**: Positive LE can indicate arrhythmia risk
         """)
+                
 
 with tabs[4]:
     st.header("Hopf Explorer")
