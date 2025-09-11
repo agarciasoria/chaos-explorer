@@ -1711,10 +1711,27 @@ with tabs[2]:
                 )
                 # Add annotations for key transitions
                 if show_theory:
-                    fig.add_vline(x=24.74, line_dash="dash", line_color="red", opacity=0.5)
-                    fig.add_annotation(x=24.74, y=0.95, text="Hopf bifurcation", showarrow=False, textangle=-90, yref="paper")
-                    fig.add_vline(x=99.65, line_dash="dash", line_color="blue", opacity=0.5)
-                    fig.add_annotation(x=99.65, y=0.95, text="Periodic window", showarrow=False, textangle=-90, yref="paper")
+                    # Pitchfork bifurcation
+                    fig.add_vline(x=1.0, line_dash="dash", line_color="green", opacity=0.5)
+                    fig.add_annotation(x=1.0, y=0.05, text="Pitchfork", showarrow=False, textangle=-90, yref="paper")
+                    
+                    # For standard parameters σ=10, β=8/3
+                    if abs(sigma_bif - 10.0) < 0.1 and abs(beta_bif - 8/3) < 0.1:
+                        # Onset of chaos
+                        fig.add_vline(x=24.06, line_dash="dash", line_color="red", opacity=0.5)
+                        fig.add_annotation(x=24.06, y=0.95, text="Chaos onset", showarrow=False, textangle=-90, yref="paper")
+                        
+                        # Periodic window
+                        fig.add_vline(x=99.65, line_dash="dash", line_color="blue", opacity=0.5)
+                        fig.add_annotation(x=99.65, y=0.95, text="Periodic window", showarrow=False, textangle=-90, yref="paper")
+                        
+                        # Another notable periodic window
+                        fig.add_vline(x=160.0, line_dash="dash", line_color="blue", opacity=0.5)
+                        fig.add_annotation(x=160.0, y=0.05, text="Period-3", showarrow=False, textangle=-90, yref="paper")
+                    else:
+                        # Generic annotation for non-standard parameters
+                        fig.add_annotation(x=0.5, y=0.95, text=f"σ={sigma_bif:.1f}, β={beta_bif:.2f}", 
+                                        xref="paper", yref="paper", showarrow=False)
                 
                 st.plotly_chart(fig, use_container_width=True)
                 st.session_state.bifurcation_data = bifurcation_data
@@ -2076,16 +2093,16 @@ with tabs[2]:
             
             The period-doubling intervals follow Feigenbaum's constant: $\delta = 4.669...$, a universal number like π or e!
             
-            **Lorenz System: Intermittency and Crisis**
-            
-            Varying ρ in the Lorenz system reveals a different route to chaos:
-            - Small ρ: All trajectories spiral to origin
-            - ρ = 1: Pitchfork bifurcation creates two new fixed points
-            - ρ ≈ 24.74: Hopf bifurcation births strange attractor
-            - Large ρ: Periodic windows appear within chaos (e.g., ρ ≈ 99.65)
-            
-            The maxima plot shows how the attractor's structure changes—notice the sudden expansions (crises) and 
-            collapses into periodic behavior.
+            **Lorenz System: Multiple Routes to Chaos**
+
+            The Lorenz system exhibits a rich sequence of bifurcations as ρ increases:
+            - **ρ = 1**: Pitchfork bifurcation - the origin loses stability and two new fixed points appear
+            - **1 < ρ < 24.06**: The fixed points C± are stable (for σ=10, β=8/3)
+            - **ρ ≈ 24.06**: Subcritical Hopf bifurcation - strange attractor suddenly appears
+            - **ρ > 24.74**: Full chaos with strange attractor
+            - **Periodic windows**: Islands of periodic behavior within chaos (e.g., ρ ≈ 99.65, 160)
+
+            The exact values depend on σ and β. The famous value ρc ≈ 24.74 is specifically for σ=10, β=8/3.
             
             **Duffing Oscillator: Forced Transitions**
             
