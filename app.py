@@ -1516,7 +1516,7 @@ with tabs[2]:
     # System selection
     system = st.selectbox(
         "Select System",
-        ["Logistic Map", "Lorenz System (ρ variation)", "Duffing Oscillator", "Van der Pol Oscillator", "Hénon Map"]
+        ["Logistic Map", "Lorenz System (ρ variation)", "Duffing Oscillator", "Hénon Map"]
     )
     
     # System-specific parameters
@@ -1567,19 +1567,6 @@ with tabs[2]:
             gamma_points = st.slider("Parameter points", 100, 1000, 500)
             periods_transient = st.slider("Transient periods", 50, 500, 200)
             periods_collect = st.slider("Collection periods", 50, 200, 100)
-    
-    elif system == "Van der Pol Oscillator":
-        st.latex(r"\ddot{x} - \mu(1-x^2)\dot{x} + x = 0")
-        st.write("Plotting limit cycle amplitudes")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            mu_min = st.number_input("μ min", value=0.1, step=0.1)
-            mu_max = st.number_input("μ max", value=5.0, step=0.1)
-        with col2:
-            mu_points = st.slider("Parameter points", 100, 1000, 500)
-            t_transient_vdp = st.slider("Transient time", 10.0, 200.0, 100.0)
-            t_collect_vdp = st.slider("Collection time", 50.0, 200.0, 100.0)
     
     else:  # Hénon Map
         st.latex(r"x_{n+1} = 1 - a x_n^2 + y_n, \quad y_{n+1} = b x_n")
@@ -1937,204 +1924,6 @@ with tabs[2]:
                 st.session_state.bifurcation_data = bifurcation_data
                 st.session_state.bifurcation_type = system
             
-            elif system == "Van der Pol Oscillator":
-                # Van der Pol limit cycle amplitude bifurcation
-                mu_values = np.linspace(mu_min, mu_max, mu_points)
-                bifurcation_data = []
-                
-                progress_bar = st.progress(0)
-                
-                # Use adaptive sampling - fewer points for small μ (expensive) and large μ (simple)
-                if mu_max > 1:
-                    # Custom sampling: dense in transition region, sparse elsewhere
-                    mu_samples = []
-                    if mu_min < 0.1:
-                        # Very few points for tiny μ (use theory instead)
-                        mu_samples.extend(np.linspace(max(0.01, mu_min), 0.1, min(5, mu_points//10)))
-                    if mu_max > 0.1:
-                        # More points in transition region 0.1 to 2
-                        transition_end = min(2, mu_max)
-                        mu_samples.extend(np.linspace(max(0.1, mu_min), transition_end, mu_points//2))
-                    if mu_max > 2:
-                        # Fewer points for large μ (relaxation regime)
-                        mu_samples.extend(np.linspace(2, mu_max, mu_points//3))
-                    mu_values = np.array(mu_samples)
-                
-                for i, mu in enumerate(mu_values):
-                    if mu <= 0:
-                        bifurcation_data.append((mu, 0))
-                    elif mu < 0.05:
-                        # For very small μ, use theoretical approximation (much faster)
-                        amplitude = 2 * np.sqrt(mu)
-                        bifurcation_data.append((mu, amplitude))
-                        bifurcation_data.append((mu, -amplitude))
-                    else:
-                        # Numerical integration
-                        if mu < 0.5:
-                            dt_vdp = 0.05  # Larger timestep
-                            x0, v0 = 2*np.sqrt(mu), 0.0
-                            t_transient_adaptive = min(20, t_transient_vdp)  # Much shorter
-                            t_collect_adaptive = 10
-                        elif mu < 2:
-                            dt_vdp = 0.02
-                            x0, v0 = 1.5, 0.0
-                            t_transient_adaptive = min(15, t_transient_vdp)
-                            t_collect_adaptive = 10
-                        else:
-                            dt_vdp = 0.01
-                            x0, v0 = 2.0, 0.0
-                            t_transient_adaptive = min(10, t_transient_vdp)
-                            t_collect_adaptive = 5  # Fewer cycles needed
-                        
-                        n_transient = int(t_transient_adaptive / dt_vdp)
-                        n_collect = int(t_collect_adaptive / dt_vdp)
-                        
-                        x, v = x0, v0
-                        
-                        # Skip transient - using simpler Euler method for speed during transient
-                        for _ in range(n_transient):
-                            dx = v
-                            dv = mu * (1 - x**2) * v - x
-                            x += dt_vdp * dx
-                            v += dt_vdp * dv
-                        
-                        # Collect maxima using RK4 for accuracy
-                        x_extrema = []
-                        v_prev = v
-                        
-                        for _ in range(n_collect):
-                            # RK4 step (only during collection phase)
-                            k1x = v
-                            k1v = mu * (1 - x**2) * v - x
-                            
-                            k2x = v + 0.5*dt_vdp*k1v
-                            k2v = mu * (1 - (x + 0.5*dt_vdp*k1x)**2) * (v + 0.5*dt_vdp*k1v) - (x + 0.5*dt_vdp*k1x)
-                            
-                            k3x = v + 0.5*dt_vdp*k2v
-                            k3v = mu * (1 - (x + 0.5*dt_vdp*k2x)**2) * (v + 0.5*dt_vdp*k2v) - (x + 0.5*dt_vdp*k2x)
-                            
-                            k4x = v + dt_vdp*k3v
-                            k4v = mu * (1 - (x + dt_vdp*k3x)**2) * (v + dt_vdp*k3v) - (x + dt_vdp*k3x)
-                            
-                            x_new = x + dt_vdp * (k1x + 2*k2x + 2*k3x + k4x) / 6
-                            v_new = v + dt_vdp * (k1v + 2*k2v + 2*k3v + k4v) / 6
-                            
-                            # Simple extrema detection
-                            if v_prev * v_new < 0:
-                                x_extrema.append(x)
-                            
-                            v_prev = v
-                            x = x_new
-                            v = v_new
-                        
-                        # Add extrema to bifurcation data
-                        if x_extrema:
-                            # Group into maxima and minima
-                            x_sorted = sorted(x_extrema)
-                            if len(x_sorted) >= 2:
-                                bifurcation_data.append((mu, x_sorted[-1]))  # Maximum
-                                bifurcation_data.append((mu, x_sorted[0]))   # Minimum
-                            else:
-                                # Use theoretical if not enough data
-                                amplitude = 2 * (1 - np.exp(-mu/2))
-                                bifurcation_data.append((mu, amplitude))
-                                bifurcation_data.append((mu, -amplitude))
-                    
-                    if i % max(1, (len(mu_values) // 20)) == 0:
-                        progress_bar.progress((i + 1) / len(mu_values))
-                
-                progress_bar.empty()
-                
-                # Store parameters for theory annotations
-                st.session_state.vanderpol_params = {
-                    'mu_min': mu_min,
-                    'mu_max': mu_max
-                }
-                
-                # Create plot
-                fig = go.Figure()
-                if bifurcation_data:
-                    mu_vals, x_extrema = zip(*bifurcation_data)
-                    fig.add_trace(go.Scattergl(
-                        x=mu_vals,
-                        y=x_extrema,
-                        mode='markers',
-                        marker=dict(
-                            size=point_size,
-                            color='cyan',
-                            opacity=0.8
-                        ),
-                        name='Limit cycle extrema'
-                    ))
-                
-                fig.update_layout(
-                    title="Van der Pol Oscillator Bifurcation (Limit Cycle Amplitude)",
-                    xaxis_title="μ (nonlinearity parameter)",
-                    yaxis_title="x extrema",
-                    height=600,
-                    template="plotly_white"
-                )
-                
-                # Add theoretical curve for Van der Pol
-                if show_theory:
-                    # Add note about no chaos
-                    fig.add_annotation(
-                        x=0.5, y=0.95, xref="paper", yref="paper",
-                        text="Van der Pol: Always periodic (never chaotic)",
-                        showarrow=False, font=dict(size=12),
-                        bgcolor="rgba(255,255,255,0.8)"
-                    )
-                    
-                    mu_theory = np.linspace(max(0.01, mu_min), mu_max, 100)
-                    
-                    # Relaxation oscillation region
-                    if mu_max > 5:
-                        fig.add_annotation(
-                            x=min(10, mu_max*0.8), y=0.5,
-                            text="Relaxation oscillations →",
-                            showarrow=True, arrowhead=2,
-                            ax=30, ay=0,
-                            bgcolor="rgba(255,255,255,0.8)"
-                        )
-                    
-                    # Theoretical amplitudes
-                    amplitude_theory = []
-                    for mu in mu_theory:
-                        if mu < 0.1:
-                            amp = 2 * np.sqrt(mu)
-                        else:
-                            amp = 2 * (1 - np.exp(-mu/2))
-                        amplitude_theory.append(amp)
-                    
-                    amplitude_theory = np.array(amplitude_theory)
-                    
-                    # Plot positive and negative branches
-                    fig.add_trace(go.Scatter(
-                        x=mu_theory,
-                        y=amplitude_theory,
-                        mode='lines',
-                        line=dict(color='red', dash='dash', width=2),
-                        opacity=0.7,
-                        name='Theoretical amplitude'
-                    ))
-                    fig.add_trace(go.Scatter(
-                        x=mu_theory,
-                        y=-amplitude_theory,
-                        mode='lines',
-                        line=dict(color='red', dash='dash', width=2),
-                        opacity=0.7,
-                        showlegend=False
-                    ))
-                    
-                    # Add Hopf bifurcation point
-                    fig.add_vline(x=0, line_dash="dash", line_color="green", opacity=0.5)
-                    fig.add_annotation(x=0, y=0.05, text="Hopf bifurcation", 
-                                    showarrow=False, textangle=-90, yref="paper")
-                
-                st.plotly_chart(fig, use_container_width=True)
-                st.session_state.bifurcation_data = bifurcation_data
-                st.session_state.bifurcation_type = system
-    
             
             else:  # Hénon Map
                 # Hénon map bifurcation
@@ -2239,14 +2028,7 @@ with tabs[2]:
                 height=600,
                 template="plotly_white"
             )
-        elif system == "Van der Pol Oscillator":
-            fig.update_layout(
-                title="Van der Pol Oscillator Bifurcation (Limit Cycle Amplitude)",
-                xaxis_title="μ (nonlinearity parameter)",
-                yaxis_title="x extrema",
-                height=600,
-                template="plotly_white"
-            )
+        
         elif system == "Hénon Map":
             fig.update_layout(
                 title="Hénon Map Bifurcation Diagram",
@@ -2376,33 +2158,7 @@ with tabs[2]:
                         bgcolor="rgba(255,255,200,0.8)"
                     )
             
-            elif system == "Van der Pol Oscillator":
-                # Hopf bifurcation at μ=0
-                fig.add_vline(x=0, line_dash="dash", line_color="green", opacity=0.5)
-                fig.add_annotation(x=0, y=0.95, text="Hopf bifurcation", showarrow=False, textangle=-90, yref="paper")
-                
-                # Get parameter range from data
-                min_param = min(param_vals)
-                max_param = max(param_vals)
-                
-                # Add theoretical amplitude for large μ
-                if max_param > 1:
-                    mu_theory = np.linspace(max(1, min_param), max_param, 100)
-                    amplitude_theory = 2 * np.ones_like(mu_theory)
-                    fig.add_trace(go.Scatter(
-                        x=mu_theory,
-                        y=amplitude_theory,
-                        mode='lines',
-                        line=dict(color='red', dash='dash'),
-                        name='Theoretical amplitude ≈ 2'
-                    ))
-                    fig.add_trace(go.Scatter(
-                        x=mu_theory,
-                        y=-amplitude_theory,
-                        mode='lines',
-                        line=dict(color='red', dash='dash'),
-                        showlegend=False
-                    ))
+            
             
             elif system == "Hénon Map":
                 # Fixed point
