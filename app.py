@@ -3681,6 +3681,529 @@ with tabs[3]:  # Lyapunov Exponents tab
                     st.metric("Max FTLE", f"{np.max(ftle_map):.3f}")
                 with col3:
                     st.metric("Min FTLE", f"{np.min(ftle_map):.3f}")
+
+            elif system == "Lorenz System":
+                # Grid of initial conditions and parameters
+                rho_grid = np.linspace(rho_min, rho_max, 50)
+                # Initial conditions: vary x and y, keep z fixed
+                x0_grid = np.linspace(-20, 20, 50)
+                
+                ftle_map = np.zeros((len(x0_grid), len(rho_grid)))
+                
+                progress_bar = st.progress(0)
+                window_time = 10.0  # Finite time window
+                
+                for i, x0 in enumerate(x0_grid):
+                    for j, rho in enumerate(rho_grid):
+                        # Initial state
+                        state = np.array([x0, x0, 20.0])  # Keep z fixed
+                        perturbation = np.array([1e-8, 0, 0])
+                        perturbation /= np.linalg.norm(perturbation)
+                        
+                        lyap_sum = 0
+                        n_renorm = 0
+                        t = 0
+                        
+                        # Skip short transient
+                        transient_time = 5.0
+                        while t < transient_time:
+                            k1 = np.array([sigma * (state[1] - state[0]),
+                                        state[0] * (rho - state[2]) - state[1],
+                                        state[0] * state[1] - beta * state[2]])
+                            k2_state = state + 0.5 * dt * k1
+                            k2 = np.array([sigma * (k2_state[1] - k2_state[0]),
+                                        k2_state[0] * (rho - k2_state[2]) - k2_state[1],
+                                        k2_state[0] * k2_state[1] - beta * k2_state[2]])
+                            state += dt * k2
+                            t += dt
+                        
+                        # Compute finite-time Lyapunov
+                        t = 0
+                        while t < window_time:
+                            # Evolve state
+                            old_state = state.copy()
+                            k1 = np.array([sigma * (state[1] - state[0]),
+                                        state[0] * (rho - state[2]) - state[1],
+                                        state[0] * state[1] - beta * state[2]])
+                            k2_state = state + 0.5 * dt * k1
+                            k2 = np.array([sigma * (k2_state[1] - k2_state[0]),
+                                        k2_state[0] * (rho - k2_state[2]) - k2_state[1],
+                                        k2_state[0] * k2_state[1] - beta * k2_state[2]])
+                            state += dt * k2
+                            
+                            # Evolve perturbation
+                            perturbed = old_state + perturbation
+                            k1p = np.array([sigma * (perturbed[1] - perturbed[0]),
+                                        perturbed[0] * (rho - perturbed[2]) - perturbed[1],
+                                        perturbed[0] * perturbed[1] - beta * perturbed[2]])
+                            k2_perturbed = perturbed + 0.5 * dt * k1p
+                            k2p = np.array([sigma * (k2_perturbed[1] - k2_perturbed[0]),
+                                        k2_perturbed[0] * (rho - k2_perturbed[2]) - k2_perturbed[1],
+                                        k2_perturbed[0] * k2_perturbed[1] - beta * k2_perturbed[2]])
+                            perturbed += dt * k2p
+                            
+                            perturbation = perturbed - state
+                            
+                            # Renormalize
+                            if (n_renorm + 1) * renorm_interval <= t:
+                                d = np.linalg.norm(perturbation)
+                                if d > 0:
+                                    lyap_sum += np.log(d)
+                                    perturbation /= d
+                                    n_renorm += 1
+                            
+                            t += dt
+                        
+                        if n_renorm > 0:
+                            ftle_map[i, j] = lyap_sum / (n_renorm * renorm_interval)
+                    
+                    progress_bar.progress((i + 1) / len(x0_grid))
+                
+                progress_bar.empty()
+                
+                # Create heatmap
+                fig = go.Figure(data=go.Heatmap(
+                    z=ftle_map,
+                    x=rho_grid,
+                    y=x0_grid,
+                    colorscale=color_scheme,
+                    colorbar=dict(title="FTLE"),
+                    hoverongaps=False,
+                    hovertemplate="ρ: %{x}<br>x₀: %{y}<br>FTLE: %{z:.3f}<extra></extra>"
+                ))
+                
+                # Add contour at FTLE = 0
+                fig.add_contour(
+                    z=ftle_map,
+                    x=rho_grid,
+                    y=x0_grid,
+                    contours=dict(
+                        start=0,
+                        end=0,
+                        size=0.1,
+                        coloring='lines',
+                        showlabels=True
+                    ),
+                    line=dict(color='white', width=2),
+                    name='FTLE = 0'
+                )
+                
+                fig.update_layout(
+                    title=f"Finite-Time Lyapunov Exponent Heatmap (T = {window_time})",
+                    xaxis_title="ρ parameter",
+                    yaxis_title="Initial condition x₀",
+                    height=600,
+                    template="plotly_white"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+            elif system == "Hénon Map":
+                # Grid of initial conditions and parameters
+                a_grid = np.linspace(a_min, a_max, 50)
+                x0_grid = np.linspace(-2, 2, 50)
+                
+                ftle_map = np.zeros((len(x0_grid), len(a_grid)))
+                
+                progress_bar = st.progress(0)
+                window_size = 100  # iterations
+                
+                for i, x0 in enumerate(x0_grid):
+                    for j, a in enumerate(a_grid):
+                        x, y = x0, 0.0
+                        
+                        # Skip transient
+                        for _ in range(50):
+                            x_new = 1 - a * x**2 + y
+                            y_new = b_henon * x
+                            x, y = x_new, y_new
+                        
+                        # Compute finite-time Lyapunov using Jacobian method
+                        lyap_sum = 0
+                        x_traj, y_traj = x, y
+                        
+                        for _ in range(window_size):
+                            # Jacobian matrix
+                            J = np.array([[-2*a*x_traj, 1],
+                                        [b_henon, 0]])
+                            
+                            # Largest eigenvalue magnitude
+                            eigenvalues = np.linalg.eigvals(J)
+                            lyap_sum += np.log(np.max(np.abs(eigenvalues)))
+                            
+                            # Update
+                            x_new = 1 - a * x_traj**2 + y_traj
+                            y_new = b_henon * x_traj
+                            x_traj, y_traj = x_new, y_new
+                        
+                        ftle_map[i, j] = lyap_sum / window_size
+                    
+                    progress_bar.progress((i + 1) / len(x0_grid))
+                
+                progress_bar.empty()
+                
+                # Create heatmap
+                fig = go.Figure(data=go.Heatmap(
+                    z=ftle_map,
+                    x=a_grid,
+                    y=x0_grid,
+                    colorscale=color_scheme,
+                    colorbar=dict(title="FTLE"),
+                    hoverongaps=False,
+                    hovertemplate="a: %{x}<br>x₀: %{y}<br>FTLE: %{z:.3f}<extra></extra>"
+                ))
+                
+                # Add contour at FTLE = 0
+                fig.add_contour(
+                    z=ftle_map,
+                    x=a_grid,
+                    y=x0_grid,
+                    contours=dict(
+                        start=0,
+                        end=0,
+                        size=0.1,
+                        coloring='lines',
+                        showlabels=True
+                    ),
+                    line=dict(color='white', width=2),
+                    name='FTLE = 0'
+                )
+                
+                fig.update_layout(
+                    title=f"Finite-Time Lyapunov Exponent Heatmap (window = {window_size} iterations)",
+                    xaxis_title="a parameter",
+                    yaxis_title="Initial condition x₀",
+                    height=600,
+                    template="plotly_white"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+            elif system == "Duffing Oscillator":
+                # Grid of forcing amplitude and initial position
+                gamma_grid = np.linspace(gamma_min, gamma_max, 50)
+                x0_grid = np.linspace(-2, 2, 50)
+                
+                ftle_map = np.zeros((len(x0_grid), len(gamma_grid)))
+                
+                progress_bar = st.progress(0)
+                window_time = 20.0  # Time window
+                dt_duff = 0.05
+                
+                for i, x0 in enumerate(x0_grid):
+                    for j, gamma in enumerate(gamma_grid):
+                        # Initial state
+                        state = np.array([x0, 0.0])
+                        phase = 0.0
+                        perturbation = np.array([1e-8, 1e-8])
+                        perturbation /= np.linalg.norm(perturbation)
+                        
+                        # Skip transient
+                        for _ in range(int(20 / dt_duff)):
+                            x, x_dot = state
+                            x_ddot = -delta * x_dot - alpha * x - beta_duff * x**3 + gamma * np.cos(omega * phase)
+                            state[0] += x_dot * dt_duff
+                            state[1] += x_ddot * dt_duff
+                            phase += omega * dt_duff
+                        
+                        # Compute FTLE
+                        lyap_sum = 0
+                        n_steps = 0
+                        
+                        for _ in range(int(window_time / dt_duff)):
+                            # Current and perturbed states
+                            x, x_dot = state
+                            perturbed = state + perturbation
+                            x_p, x_dot_p = perturbed
+                            
+                            # Dynamics
+                            x_ddot = -delta * x_dot - alpha * x - beta_duff * x**3 + gamma * np.cos(omega * phase)
+                            x_ddot_p = -delta * x_dot_p - alpha * x_p - beta_duff * x_p**3 + gamma * np.cos(omega * phase)
+                            
+                            # Update
+                            state[0] += x_dot * dt_duff
+                            state[1] += x_ddot * dt_duff
+                            perturbed[0] += x_dot_p * dt_duff
+                            perturbed[1] += x_ddot_p * dt_duff
+                            
+                            perturbation = perturbed - state
+                            
+                            # Renormalize every 1 time unit
+                            if (n_steps + 1) % int(1.0 / dt_duff) == 0:
+                                d = np.linalg.norm(perturbation)
+                                if d > 0:
+                                    lyap_sum += np.log(d)
+                                    perturbation /= d
+                            
+                            phase += omega * dt_duff
+                            n_steps += 1
+                        
+                        n_renorm = n_steps // int(1.0 / dt_duff)
+                        if n_renorm > 0:
+                            ftle_map[i, j] = lyap_sum / n_renorm
+                    
+                    progress_bar.progress((i + 1) / len(x0_grid))
+                
+                progress_bar.empty()
+                
+                # Create heatmap
+                fig = go.Figure(data=go.Heatmap(
+                    z=ftle_map,
+                    x=gamma_grid,
+                    y=x0_grid,
+                    colorscale=color_scheme,
+                    colorbar=dict(title="FTLE"),
+                    hoverongaps=False,
+                    hovertemplate="γ: %{x}<br>x₀: %{y}<br>FTLE: %{z:.3f}<extra></extra>"
+                ))
+                
+                # Add contour at FTLE = 0
+                fig.add_contour(
+                    z=ftle_map,
+                    x=gamma_grid,
+                    y=x0_grid,
+                    contours=dict(
+                        start=0,
+                        end=0,
+                        size=0.1,
+                        coloring='lines',
+                        showlabels=True
+                    ),
+                    line=dict(color='white', width=2),
+                    name='FTLE = 0'
+                )
+                
+                fig.update_layout(
+                    title=f"Finite-Time Lyapunov Exponent Heatmap (T = {window_time})",
+                    xaxis_title="Forcing amplitude γ",
+                    yaxis_title="Initial position x₀",
+                    height=600,
+                    template="plotly_white"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+            elif system == "Van der Pol Oscillator":
+                # Grid of mu values and initial conditions
+                mu_grid = np.linspace(mu_min, mu_max, 50)
+                x0_grid = np.linspace(-3, 3, 50)
+                
+                ftle_map = np.zeros((len(x0_grid), len(mu_grid)))
+                
+                progress_bar = st.progress(0)
+                window_time = 20.0
+                dt_vdp = 0.05
+                
+                for i, x0 in enumerate(x0_grid):
+                    for j, mu in enumerate(mu_grid):
+                        # Initial state
+                        state = np.array([x0, 0.0])
+                        perturbation = np.array([1e-8, 1e-8])
+                        perturbation /= np.linalg.norm(perturbation)
+                        
+                        # Skip transient
+                        for _ in range(int(20 / dt_vdp)):
+                            x, y = state
+                            dx = y
+                            dy = mu * (1 - x**2) * y - x
+                            state[0] += dx * dt_vdp
+                            state[1] += dy * dt_vdp
+                        
+                        # Compute FTLE
+                        lyap_sum = 0
+                        n_steps = 0
+                        
+                        for _ in range(int(window_time / dt_vdp)):
+                            x, y = state
+                            perturbed = state + perturbation
+                            x_p, y_p = perturbed
+                            
+                            # Dynamics
+                            dx = y
+                            dy = mu * (1 - x**2) * y - x
+                            dx_p = y_p
+                            dy_p = mu * (1 - x_p**2) * y_p - x_p
+                            
+                            # Update
+                            state[0] += dx * dt_vdp
+                            state[1] += dy * dt_vdp
+                            perturbed[0] += dx_p * dt_vdp
+                            perturbed[1] += dy_p * dt_vdp
+                            
+                            perturbation = perturbed - state
+                            
+                            # Renormalize every 1 time unit
+                            if (n_steps + 1) % int(1.0 / dt_vdp) == 0:
+                                d = np.linalg.norm(perturbation)
+                                if d > 0:
+                                    lyap_sum += np.log(d)
+                                    perturbation /= d
+                            
+                            n_steps += 1
+                        
+                        n_renorm = n_steps // int(1.0 / dt_vdp)
+                        if n_renorm > 0:
+                            ftle_map[i, j] = lyap_sum / n_renorm
+                    
+                    progress_bar.progress((i + 1) / len(x0_grid))
+                
+                progress_bar.empty()
+                
+                # Create heatmap
+                fig = go.Figure(data=go.Heatmap(
+                    z=ftle_map,
+                    x=mu_grid,
+                    y=x0_grid,
+                    colorscale=color_scheme,
+                    colorbar=dict(title="FTLE"),
+                    hoverongaps=False,
+                    hovertemplate="μ: %{x}<br>x₀: %{y}<br>FTLE: %{z:.3f}<extra></extra>"
+                ))
+                
+                # Add contour at FTLE = 0
+                fig.add_contour(
+                    z=ftle_map,
+                    x=mu_grid,
+                    y=x0_grid,
+                    contours=dict(
+                        start=0,
+                        end=0,
+                        size=0.1,
+                        coloring='lines',
+                        showlabels=True
+                    ),
+                    line=dict(color='white', width=2),
+                    name='FTLE = 0'
+                )
+                
+                fig.update_layout(
+                    title=f"Finite-Time Lyapunov Exponent Heatmap (T = {window_time})",
+                    xaxis_title="μ parameter",
+                    yaxis_title="Initial condition x₀",
+                    height=600,
+                    template="plotly_white"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Note about Van der Pol
+                st.info("""
+                **Note:** The Van der Pol oscillator always converges to a limit cycle for μ > 0.
+                The FTLE values show transient behavior - how fast trajectories approach the cycle.
+                Blue regions (negative FTLE) indicate faster convergence to the limit cycle.
+                """)
+            
+            # Common interpretation guide for all systems
+            with st.expander("📖 How to interpret this heatmap", expanded=True):
+                st.markdown(f"""
+                **Color coding:**
+                - **Red/Yellow**: Positive FTLE → Chaotic/diverging behavior
+                - **Blue/Purple**: Negative FTLE → Stable/converging behavior
+                - **White contour**: FTLE = 0 boundary
+                
+                **Key patterns:**
+                - **Vertical bands**: Parameter value dominates behavior
+                - **Horizontal bands**: Initial condition insensitive
+                - **Complex patterns**: Multiple attractors or basins
+                - **Sharp transitions**: Bifurcations or crisis events
+                
+                **System-specific insights:**
+                """)
+                
+                if system == "Logistic Map":
+                    st.markdown("""
+                    - Notice the period-doubling cascade as r increases
+                    - Chaotic bands appear around r > 3.57
+                    - White regions show periodic windows within chaos
+                    """)
+                elif system == "Lorenz System":
+                    st.markdown("""
+                    - The famous butterfly attractor appears for ρ > 24.74
+                    - Initial conditions converge to the same attractor (horizontal bands)
+                    - Complex structure near ρ ≈ 24 shows transition to chaos
+                    """)
+                elif system == "Hénon Map":
+                    st.markdown("""
+                    - The standard Hénon attractor exists for a ≈ 1.4
+                    - Notice fractal basin boundaries (complex patterns)
+                    - Some initial conditions escape to infinity (very positive FTLE)
+                    """)
+                elif system == "Duffing Oscillator":
+                    st.markdown("""
+                    - Multiple attractors create complex basin structure
+                    - Chaos appears as forcing amplitude γ increases
+                    - Initial conditions matter greatly due to coexisting attractors
+                    - Fractal basin boundaries appear near chaotic transitions
+                    """)
+                elif system == "Van der Pol Oscillator":
+                    st.markdown("""
+                    - All trajectories converge to the same limit cycle
+                    - FTLE shows transient behavior before reaching the cycle
+                    - Larger μ creates relaxation oscillations with varying convergence rates
+                    - No positive FTLE regions (no chaos possible)
+                    """)
+            
+            # Show regions analysis
+            st.markdown("### Region Analysis")
+            chaotic_fraction = np.sum(ftle_map > 0) / ftle_map.size
+            stable_fraction = np.sum(ftle_map < 0) / ftle_map.size
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Chaotic regions", f"{chaotic_fraction:.1%}")
+            with col2:
+                st.metric("Stable regions", f"{stable_fraction:.1%}")
+            with col3:
+                st.metric("Max FTLE", f"{np.max(ftle_map):.3f}")
+            with col4:
+                st.metric("Min FTLE", f"{np.min(ftle_map):.3f}")
+            
+            # Additional analysis box
+            with st.expander("🔍 Detailed Analysis", expanded=False):
+                st.markdown("""
+                ### Understanding Finite-Time Lyapunov Exponents
+                
+                **What FTLE measures:**
+                - Rate of separation between nearby trajectories over a finite time window
+                - Unlike asymptotic Lyapunov exponents, FTLE captures transient behavior
+                - Useful for identifying coherent structures and transport barriers
+                
+                **Applications:**
+                - **Fluid dynamics**: Finding Lagrangian coherent structures
+                - **Weather prediction**: Identifying stable/unstable manifolds
+                - **Engineering**: Detecting regions of rapid mixing or transport
+                
+                **Key differences from asymptotic LLE:**
+                1. **Time dependence**: FTLE varies with integration time
+                2. **Initial condition sensitivity**: Shows local behavior
+                3. **Transient chaos**: Can detect temporary chaotic behavior
+                
+                **Reading the heatmap:**
+                - **Ridges** (high FTLE): Repelling material lines
+                - **Valleys** (low FTLE): Attracting material lines
+                - **Sharp gradients**: Separatrices between dynamical regimes
+                """)
+                
+                # Parameter-specific insights
+                if system == "Lorenz System":
+                    st.markdown(f"""
+                    **For your parameter range (ρ ∈ [{rho_min}, {rho_max}]):**
+                    - Below ρ ≈ 1: All trajectories decay to origin
+                    - 1 < ρ < 24.06: Stable fixed points
+                    - 24.06 < ρ < 24.74: Metastable chaos
+                    - ρ > 24.74: Strange attractor
+                    
+                    The heatmap shows how these transitions affect different initial conditions.
+                    """)
+                elif system == "Duffing Oscillator":
+                    st.markdown(f"""
+                    **For your parameter range (γ ∈ [{gamma_min}, {gamma_max}]):**
+                    - Low γ: Simple periodic motion
+                    - Intermediate γ: Coexisting periodic attractors
+                    - High γ: Chaotic motion with fractal basins
+                    
+                    The complex patterns indicate sensitive dependence on initial conditions.
+                    """)
         
         elif viz_type == "Spectrum Analysis":
             # Full Lyapunov spectrum for multi-dimensional systems
