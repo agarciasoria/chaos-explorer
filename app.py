@@ -1948,8 +1948,8 @@ with tabs[2]:
                         x, y = x_new, y_new
                         bifurcation_data.append((a, x))
                     
-                    if i % (a_points // 20) == 0:
-                        progress_bar.progress(i / a_points)
+                    if i % max(1, (a_points // 20)) == 0:
+                        progress_bar.progress((i + 1) / a_points)
                 
                 progress_bar.empty()
                 
@@ -1977,6 +1977,104 @@ with tabs[2]:
                     height=600,
                     template="plotly_white"
                 )
+                
+                # Add annotations for Hénon map BEFORE displaying
+                if show_theory:
+                    # Add main title annotation about the map properties
+                    fig.add_annotation(
+                        x=0.5, y=0.98, xref="paper", yref="paper",
+                        text="Hénon Map: Period-doubling cascade → Strange attractor",
+                        showarrow=False, font=dict(size=12, color="black"),
+                        bgcolor="rgba(255,255,255,0.8)"
+                    )
+                    
+                    # Fixed point loses stability at a = 3/4
+                    if a_min <= 0.75 <= a_max:
+                        fig.add_vline(x=0.75, line_dash="dash", line_color="green", opacity=0.5)
+                        fig.add_annotation(
+                            x=0.75, y=0.05, 
+                            text="Fixed point loses stability",
+                            showarrow=False, textangle=-90, yref="paper",
+                            font=dict(size=10)
+                        )
+                    
+                    # Period-2 bifurcation around a = 1.0
+                    if a_min <= 1.0 <= a_max:
+                        fig.add_vline(x=1.0, line_dash="dash", line_color="red", opacity=0.5)
+                        fig.add_annotation(
+                            x=1.0, y=0.95, 
+                            text="Period-2",
+                            showarrow=False, textangle=-90, yref="paper"
+                        )
+                    
+                    # Period-4 bifurcation around a = 1.25
+                    if a_min <= 1.25 <= a_max:
+                        fig.add_vline(x=1.25, line_dash="dash", line_color="orange", opacity=0.5)
+                        fig.add_annotation(
+                            x=1.25, y=0.05, 
+                            text="Period-4",
+                            showarrow=False, textangle=-90, yref="paper"
+                        )
+                    
+                    # Period-8 and beyond (cascade accelerates)
+                    if a_min <= 1.315 <= a_max:
+                        fig.add_vline(x=1.315, line_dash="dash", line_color="purple", opacity=0.3)
+                        fig.add_annotation(
+                            x=1.315, y=0.95, 
+                            text="Period-8...",
+                            showarrow=False, textangle=-90, yref="paper",
+                            font=dict(size=9)
+                        )
+                    
+                    # Chaos onset around a = 1.368
+                    if a_min <= 1.368 <= a_max:
+                        fig.add_vline(x=1.368, line_dash="dash", line_color="darkred", opacity=0.5)
+                        fig.add_annotation(
+                            x=1.368, y=0.05, 
+                            text="Chaos onset",
+                            showarrow=False, textangle=-90, yref="paper",
+                            font=dict(color="darkred")
+                        )
+                    
+                    # Strange attractor fully developed
+                    if a_min <= 1.4 <= a_max and a_max >= 1.4:
+                        fig.add_annotation(
+                            x=1.4, y=0.7,
+                            text="Strange attractor →",
+                            showarrow=True, arrowhead=2,
+                            ax=40, ay=0,
+                            bgcolor="rgba(255,255,255,0.8)",
+                            font=dict(size=11)
+                        )
+                    
+                    # Highlight fractal structure
+                    if a_max > 1.35:
+                        # Add shaded region for chaotic regime
+                        fig.add_vrect(
+                            x0=max(1.368, a_min), x1=a_max,
+                            fillcolor="red", opacity=0.05,
+                            layer="below", line_width=0
+                        )
+                        
+                        # Note about fractal nature
+                        fig.add_annotation(
+                            x=0.98, y=0.02, xref="paper", yref="paper",
+                            text=f"b = {b_henon:.3f} | Fractal dimension ≈ 1.26",
+                            showarrow=False, font=dict(size=9),
+                            bgcolor="rgba(255,255,200,0.8)"
+                        )
+                    
+                    # Show period-doubling accumulation point
+                    accumulation = 1.368  # Approximate Feigenbaum point for Hénon
+                    if a_min <= accumulation <= a_max:
+                        fig.add_annotation(
+                            x=accumulation, y=0.5,
+                            text="δ ≈ 4.669...",  # Feigenbaum constant
+                            showarrow=True, arrowhead=0,
+                            ax=-40, ay=-30,
+                            bgcolor="rgba(255,255,255,0.9)",
+                            font=dict(size=9, color="purple")
+                        )
                 
                 st.plotly_chart(fig, use_container_width=True)
                 st.session_state.bifurcation_data = bifurcation_data
@@ -2159,20 +2257,6 @@ with tabs[2]:
                     )
             
             
-            
-            elif system == "Hénon Map":
-                # Fixed point
-                fig.add_vline(x=1.0, line_dash="dash", line_color="red", opacity=0.5)
-                fig.add_annotation(x=1.0, y=0.95, text="Fixed point", showarrow=False, textangle=-90, yref="paper")
-                
-                # Period-2 bifurcation
-                fig.add_vline(x=1.25, line_dash="dash", line_color="orange", opacity=0.5)
-                fig.add_annotation(x=1.25, y=0.05, text="Period-2", showarrow=False, textangle=-90, yref="paper")
-                
-                # Chaos onset
-                fig.add_vline(x=1.368, line_dash="dash", line_color="purple", opacity=0.5)
-                fig.add_annotation(x=1.368, y=0.95, text="Chaos onset", showarrow=False, textangle=-90, yref="paper")
-        
         st.plotly_chart(fig, use_container_width=True)
 
     # Metrics
