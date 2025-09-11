@@ -4785,10 +4785,645 @@ with tabs[3]:  # Lyapunov Exponents tab
                     else:
                         st.info("**System is not chaotic** - Long-term prediction possible")
             
-            elif system in ["Logistic Map", "Hénon Map"]:
-                st.warning(f"Spectrum analysis is most meaningful for continuous systems. For {system}, showing LLE vs Parameter instead.")
-                # Redirect to LLE vs Parameter
-                viz_type = "LLE vs Parameter"
+            
+            elif system == "Duffing Oscillator":
+                gamma_spectrum = st.slider("Select γ value", gamma_min, gamma_max, (gamma_min + gamma_max)/2)
+                
+                # Initial conditions
+                state = np.array([0.1, 0.0])  # [x, x_dot]
+                phase = 0.0
+                
+                # Initialize 2 orthonormal perturbation vectors
+                Q = np.eye(2) * 1e-8
+                
+                lyap_sums = np.zeros(2)
+                n_renorm = 0
+                
+                # For plotting convergence
+                lyap_history = [[], []]
+                
+                progress_bar = st.progress(0)
+                dt_duff = 0.01
+                
+                # Skip transient
+                transient_steps = int(50 / dt_duff)
+                for _ in range(transient_steps):
+                    x, x_dot = state
+                    x_ddot = -delta * x_dot - alpha * x - beta_duff * x**3 + gamma_spectrum * np.cos(omega * phase)
+                    state[0] += x_dot * dt_duff
+                    state[1] += x_ddot * dt_duff
+                    phase += omega * dt_duff
+                
+                # Compute spectrum
+                t = 0
+                while t < integration_time:
+                    # Evolve perturbations
+                    Q_new = Q.copy()
+                    for j in range(2):
+                        perturbed = state + Q[:, j]
+                        x_p, x_dot_p = perturbed
+                        
+                        # Dynamics for perturbed trajectory
+                        x_ddot_p = -delta * x_dot_p - alpha * x_p - beta_duff * x_p**3 + gamma_spectrum * np.cos(omega * phase)
+                        
+                        # Update perturbed state
+                        perturbed[0] += x_dot_p * dt_duff
+                        perturbed[1] += x_ddot_p * dt_duff
+                        
+                        Q_new[:, j] = perturbed - state
+                    
+                    # Evolve main trajectory
+                    x, x_dot = state
+                    x_ddot = -delta * x_dot - alpha * x - beta_duff * x**3 + gamma_spectrum * np.cos(omega * phase)
+                    state[0] += x_dot * dt_duff
+                    state[1] += x_ddot * dt_duff
+                    
+                    Q = Q_new
+                    
+                    # Gram-Schmidt orthogonalization
+                    if (n_renorm + 1) * 1.0 <= t:  # Every 1 time unit
+                        Q, R = np.linalg.qr(Q)
+                        for j in range(2):
+                            lyap_sums[j] += np.log(abs(R[j, j]))
+                            if n_renorm > 0:
+                                lyap_history[j].append(lyap_sums[j] / n_renorm)
+                        n_renorm += 1
+                    
+                    phase += omega * dt_duff
+                    t += dt_duff
+                    
+                    if int(t / integration_time * 100) % 5 == 0:
+                        progress_bar.progress(t / integration_time)
+                
+                progress_bar.empty()
+                
+                # Final spectrum
+                spectrum = lyap_sums / n_renorm
+                spectrum_sorted = sorted(spectrum, reverse=True)
+                
+                # Create plots
+                fig = make_subplots(rows=2, cols=1,
+                                subplot_titles=("Lyapunov Spectrum Convergence", 
+                                                "Final Lyapunov Spectrum"),
+                                vertical_spacing=0.15)
+                
+                # Convergence plot
+                colors = ['red', 'blue']
+                for i, (history, color) in enumerate(zip(lyap_history, colors)):
+                    if len(history) > 0:
+                        fig.add_trace(go.Scatter(
+                            y=history,
+                            mode='lines',
+                            line=dict(color=color, width=2),
+                            name=f'λ{i+1}'
+                        ), row=1, col=1)
+                
+                # Final spectrum bar plot
+                fig.add_trace(go.Bar(
+                    x=['λ₁', 'λ₂'],
+                    y=spectrum_sorted,
+                    marker=dict(color=['red' if l > 0 else 'blue' if l < 0 else 'gray' for l in spectrum_sorted]),
+                    text=[f'{l:.3f}' for l in spectrum_sorted],
+                    textposition='outside',
+                    name='Spectrum'
+                ), row=2, col=1)
+                
+                # Add zero line
+                fig.add_hline(y=0, line_dash="dash", line_color="gray", row=1, col=1)
+                fig.add_hline(y=0, line_dash="dash", line_color="gray", row=2, col=1)
+                
+                fig.update_layout(
+                    title=f"Lyapunov Spectrum Analysis - Duffing (γ = {gamma_spectrum:.2f})",
+                    height=700,
+                    template="plotly_white",
+                    showlegend=True
+                )
+                
+                fig.update_xaxes(title_text="Renormalization step", row=1, col=1)
+                fig.update_yaxes(title_text="Lyapunov exponent", row=1, col=1)
+                fig.update_yaxes(title_text="Value", row=2, col=1)
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Show interpretation guide
+                with st.expander("📖 How to interpret the spectrum", expanded=True):
+                    st.markdown(f"""
+                    **What the spectrum tells you:**
+                    - **λ₁ = {spectrum_sorted[0]:.4f}**: {"Positive → Chaotic" if spectrum_sorted[0] > 0 else "Non-positive → Periodic/stable"}
+                    - **λ₂ = {spectrum_sorted[1]:.4f}**: Should be negative (dissipation due to damping)
+                    
+                    **For the Duffing oscillator:**
+                    - Sum Σλᵢ = {sum(spectrum_sorted):.4f} (should be negative due to damping δ = {delta})
+                    - λ₁ > 0 indicates chaotic motion
+                    - |λ₂| > |λ₁| ensures bounded attractor
+                    
+                    **Physical meaning:**
+                    - Models nonlinear vibrations in mechanical systems
+                    - Positive λ₁ means unpredictable oscillations
+                    - The sum represents energy dissipation rate
+                    """)
+                
+                # Metrics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("λ₁", f"{spectrum_sorted[0]:.4f}", 
+                            delta="Chaotic" if spectrum_sorted[0] > 0 else "Regular")
+                with col2:
+                    st.metric("λ₂", f"{spectrum_sorted[1]:.4f}")
+                with col3:
+                    st.metric("Sum Σλᵢ", f"{sum(spectrum_sorted):.4f}")
+                
+                # Additional analysis
+                if spectrum_sorted[0] > 0:
+                    lyap_time = 1 / spectrum_sorted[0]
+                    st.info(f"""
+                    **Predictability Analysis:**
+                    - Lyapunov time: τ = {lyap_time:.2f} time units
+                    - Predictable for ~{2*lyap_time:.1f} time units
+                    - Chaos parameter: γ/γc ≈ {gamma_spectrum/0.2:.2f} (γc ≈ 0.2 for onset)
+                    """)
+
+            elif system == "Van der Pol Oscillator":
+                mu_spectrum = st.slider("Select μ value", mu_min, mu_max, (mu_min + mu_max)/2)
+                
+                # Initial conditions on limit cycle
+                if mu_spectrum < 0.1:
+                    state = np.array([2.0, 0.0])
+                else:
+                    A = 2.0 * (1 - 1/(8*mu_spectrum))
+                    state = np.array([A, 0.0])
+                
+                # Initialize 2 orthonormal perturbation vectors
+                Q = np.eye(2) * 1e-8
+                
+                lyap_sums = np.zeros(2)
+                n_renorm = 0
+                
+                # For plotting convergence
+                lyap_history = [[], []]
+                
+                progress_bar = st.progress(0)
+                dt_vdp = 0.01
+                
+                # Skip transient
+                transient_steps = int(100 / dt_vdp)
+                for _ in range(transient_steps):
+                    x, y = state
+                    dx = y
+                    dy = mu_spectrum * (1 - x**2) * y - x
+                    state[0] += dx * dt_vdp
+                    state[1] += dy * dt_vdp
+                
+                # Compute spectrum
+                t = 0
+                while t < integration_time:
+                    # Evolve perturbations
+                    Q_new = Q.copy()
+                    for j in range(2):
+                        perturbed = state + Q[:, j]
+                        x_p, y_p = perturbed
+                        
+                        # Van der Pol dynamics
+                        dx_p = y_p
+                        dy_p = mu_spectrum * (1 - x_p**2) * y_p - x_p
+                        
+                        # Update perturbed state
+                        perturbed[0] += dx_p * dt_vdp
+                        perturbed[1] += dy_p * dt_vdp
+                        
+                        Q_new[:, j] = perturbed - state
+                    
+                    # Evolve main trajectory
+                    x, y = state
+                    dx = y
+                    dy = mu_spectrum * (1 - x**2) * y - x
+                    state[0] += dx * dt_vdp
+                    state[1] += dy * dt_vdp
+                    
+                    Q = Q_new
+                    
+                    # Gram-Schmidt orthogonalization
+                    if (n_renorm + 1) * 1.0 <= t:
+                        Q, R = np.linalg.qr(Q)
+                        for j in range(2):
+                            lyap_sums[j] += np.log(abs(R[j, j]))
+                            if n_renorm > 0:
+                                lyap_history[j].append(lyap_sums[j] / n_renorm)
+                        n_renorm += 1
+                    
+                    t += dt_vdp
+                    
+                    if int(t / integration_time * 100) % 5 == 0:
+                        progress_bar.progress(t / integration_time)
+                
+                progress_bar.empty()
+                
+                # Final spectrum
+                spectrum = lyap_sums / n_renorm
+                spectrum_sorted = sorted(spectrum, reverse=True)
+                
+                # Create plots
+                fig = make_subplots(rows=2, cols=1,
+                                subplot_titles=("Lyapunov Spectrum Convergence", 
+                                                "Final Lyapunov Spectrum"),
+                                vertical_spacing=0.15)
+                
+                # Convergence plot
+                colors = ['red', 'blue']
+                for i, (history, color) in enumerate(zip(lyap_history, colors)):
+                    if len(history) > 0:
+                        fig.add_trace(go.Scatter(
+                            y=history,
+                            mode='lines',
+                            line=dict(color=color, width=2),
+                            name=f'λ{i+1}'
+                        ), row=1, col=1)
+                
+                # Final spectrum bar plot
+                fig.add_trace(go.Bar(
+                    x=['λ₁', 'λ₂'],
+                    y=spectrum_sorted,
+                    marker=dict(color=['green' if l <= 0 else 'red' for l in spectrum_sorted]),
+                    text=[f'{l:.3f}' for l in spectrum_sorted],
+                    textposition='outside',
+                    name='Spectrum'
+                ), row=2, col=1)
+                
+                # Add zero line
+                fig.add_hline(y=0, line_dash="dash", line_color="gray", row=1, col=1)
+                fig.add_hline(y=0, line_dash="dash", line_color="gray", row=2, col=1)
+                
+                fig.update_layout(
+                    title=f"Lyapunov Spectrum Analysis - Van der Pol (μ = {mu_spectrum:.2f})",
+                    height=700,
+                    template="plotly_white",
+                    showlegend=True
+                )
+                
+                fig.update_xaxes(title_text="Renormalization step", row=1, col=1)
+                fig.update_yaxes(title_text="Lyapunov exponent", row=1, col=1)
+                fig.update_yaxes(title_text="Value", row=2, col=1)
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Show interpretation guide
+                with st.expander("📖 How to interpret the spectrum", expanded=True):
+                    st.markdown(f"""
+                    **What the spectrum tells you:**
+                    - **λ₁ = {spectrum_sorted[0]:.4f}**: Should be ≈ 0 (on limit cycle) or < 0 (approaching cycle)
+                    - **λ₂ = {spectrum_sorted[1]:.4f}**: Negative (transverse to limit cycle)
+                    
+                    **For the Van der Pol oscillator:**
+                    - Always has a stable limit cycle for μ > 0
+                    - NO CHAOS POSSIBLE - all exponents ≤ 0
+                    - λ₁ ≈ 0 indicates trajectory on the limit cycle
+                    - λ₁ < 0 indicates trajectory converging to cycle
+                    
+                    **Physical meaning:**
+                    - Models self-sustained oscillations
+                    - μ = {mu_spectrum} controls nonlinearity
+                    - Sum Σλᵢ = {sum(spectrum_sorted):.4f} (energy balance on cycle)
+                    """)
+                
+                # Metrics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("λ₁", f"{spectrum_sorted[0]:.4f}", 
+                            delta="On cycle" if abs(spectrum_sorted[0]) < 0.01 else "Transient")
+                with col2:
+                    st.metric("λ₂", f"{spectrum_sorted[1]:.4f}")
+                with col3:
+                    st.metric("Sum Σλᵢ", f"{sum(spectrum_sorted):.4f}")
+                
+                # Additional analysis
+                st.info(f"""
+                **Limit Cycle Analysis:**
+                - Period ≈ {2*np.pi:.2f} for small μ
+                - Period ≈ {1.614*mu_spectrum:.2f} for large μ (relaxation oscillations)
+                - Amplitude ≈ {2.0 * (1 - 1/(8*mu_spectrum)) if mu_spectrum > 0.125 else 2.0:.2f}
+                
+                **Note:** Van der Pol oscillator CANNOT exhibit chaos.
+                All trajectories converge to the same limit cycle.
+                """)
+
+            elif system == "Hénon Map":
+                a_spectrum = st.slider("Select a value", a_min, a_max, 1.4)
+                
+                # For 2D map, we compute 2 Lyapunov exponents
+                x, y = 0.0, 0.0
+                
+                # Skip transient
+                for _ in range(1000):
+                    x_new = 1 - a_spectrum * x**2 + y
+                    y_new = b_henon * x
+                    x, y = x_new, y_new
+                
+                # Initialize
+                lyap_sums = np.zeros(2)
+                lyap_history = [[], []]
+                
+                # Identity matrix for perturbations
+                M = np.eye(2)
+                
+                progress_bar = st.progress(0)
+                n_steps = 10000
+                
+                for i in range(n_steps):
+                    # Jacobian matrix
+                    J = np.array([[-2*a_spectrum*x, 1],
+                                [b_henon, 0]])
+                    
+                    # Update M = J * M
+                    M = J @ M
+                    
+                    # QR decomposition every 10 iterations
+                    if (i + 1) % 10 == 0:
+                        Q, R = np.linalg.qr(M)
+                        
+                        # Accumulate logs of diagonal elements
+                        for j in range(2):
+                            lyap_sums[j] += np.log(abs(R[j, j]))
+                            lyap_history[j].append(lyap_sums[j] / (i + 1))
+                        
+                        # Reset M to Q for next iteration
+                        M = Q
+                    
+                    # Update map
+                    x_new = 1 - a_spectrum * x**2 + y
+                    y_new = b_henon * x
+                    x, y = x_new, y_new
+                    
+                    if i % 100 == 0:
+                        progress_bar.progress(i / n_steps)
+                
+                progress_bar.empty()
+                
+                # Final spectrum
+                spectrum = lyap_sums / n_steps
+                spectrum_sorted = sorted(spectrum, reverse=True)
+                
+                # Create plots
+                fig = make_subplots(rows=2, cols=1,
+                                subplot_titles=("Lyapunov Spectrum Convergence", 
+                                                "Final Lyapunov Spectrum"),
+                                vertical_spacing=0.15)
+                
+                # Convergence plot - show every 10th point for clarity
+                colors = ['red', 'blue']
+                for i, (history, color) in enumerate(zip(lyap_history, colors)):
+                    if len(history) > 0:
+                        fig.add_trace(go.Scatter(
+                            y=history[::10],  # Show every 10th point
+                            mode='lines',
+                            line=dict(color=color, width=2),
+                            name=f'λ{i+1}'
+                        ), row=1, col=1)
+                
+                # Final spectrum bar plot
+                fig.add_trace(go.Bar(
+                    x=['λ₁', 'λ₂'],
+                    y=spectrum_sorted,
+                    marker=dict(color=['red' if l > 0 else 'blue' if l < 0 else 'gray' for l in spectrum_sorted]),
+                    text=[f'{l:.3f}' for l in spectrum_sorted],
+                    textposition='outside',
+                    name='Spectrum'
+                ), row=2, col=1)
+                
+                # Add zero line
+                fig.add_hline(y=0, line_dash="dash", line_color="gray", row=1, col=1)
+                fig.add_hline(y=0, line_dash="dash", line_color="gray", row=2, col=1)
+                
+                # Add theoretical sum line
+                theoretical_sum = np.log(b_henon)
+                fig.add_hline(y=theoretical_sum, line_dash="dot", line_color="green", 
+                            row=1, col=1, opacity=0.5,
+                            annotation_text=f"Sum = ln(b) = {theoretical_sum:.3f}")
+                
+                fig.update_layout(
+                    title=f"Lyapunov Spectrum Analysis - Hénon Map (a = {a_spectrum:.2f}, b = {b_henon})",
+                    height=700,
+                    template="plotly_white",
+                    showlegend=True
+                )
+                
+                fig.update_xaxes(title_text="Iteration (×10)", row=1, col=1)
+                fig.update_yaxes(title_text="Lyapunov exponent", row=1, col=1)
+                fig.update_yaxes(title_text="Value", row=2, col=1)
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Show interpretation guide
+                with st.expander("📖 How to interpret the spectrum", expanded=True):
+                    st.markdown(f"""
+                    **What the spectrum tells you:**
+                    - **λ₁ = {spectrum_sorted[0]:.4f}**: {"Positive → Chaotic" if spectrum_sorted[0] > 0 else "Non-positive → Periodic/stable"}
+                    - **λ₂ = {spectrum_sorted[1]:.4f}**: Negative (area contraction)
+                    
+                    **For the Hénon map:**
+                    - Sum λ₁ + λ₂ = {sum(spectrum_sorted):.4f} ≈ ln(b) = {np.log(b_henon):.4f} ✓
+                    - Standard parameters (a=1.4, b=0.3): λ₁ ≈ 0.42, λ₂ ≈ -1.62
+                    - Positive λ₁ indicates strange attractor
+                    
+                    **Kaplan-Yorke dimension:**
+                    """)
+                    
+                    if spectrum_sorted[0] > 0 and spectrum_sorted[1] < 0:
+                        D_KY = 1 + spectrum_sorted[0] / abs(spectrum_sorted[1])
+                        st.markdown(f"D_KY = 1 + λ₁/|λ₂| = {D_KY:.3f} (fractal dimension)")
+                    else:
+                        st.markdown("D_KY not defined (no chaos)")
+                
+                # Metrics
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("λ₁", f"{spectrum_sorted[0]:.4f}", 
+                            delta="Chaotic" if spectrum_sorted[0] > 0 else "Regular")
+                with col2:
+                    st.metric("λ₂", f"{spectrum_sorted[1]:.4f}")
+                with col3:
+                    st.metric("Sum", f"{sum(spectrum_sorted):.4f}")
+                with col4:
+                    if spectrum_sorted[0] > 0 and spectrum_sorted[1] < 0:
+                        D_KY = 1 + spectrum_sorted[0] / abs(spectrum_sorted[1])
+                        st.metric("D_KY", f"{D_KY:.3f}")
+                    else:
+                        st.metric("D_KY", "N/A")
+                
+                # Sum rule check
+                error = abs(sum(spectrum_sorted) - np.log(b_henon))
+                st.success(f"✓ Sum rule check: |Σλᵢ - ln(b)| = {error:.6f} (should be ≈ 0)")
+
+            else:  # Logistic Map
+                st.warning("Spectrum analysis for 1D maps only has one Lyapunov exponent. Showing enhanced analysis instead.")
+                
+                r_spectrum = st.slider("Select r value", r_min, r_max, 3.8)
+                
+                # Compute single Lyapunov exponent with detailed convergence
+                x = 0.5
+                lyap_history = []
+                x_history = []
+                
+                # Skip transient
+                for _ in range(1000):
+                    x = r_spectrum * x * (1 - x)
+                
+                # Compute with history
+                lyap_sum = 0
+                for i in range(10000):
+                    x = r_spectrum * x * (1 - x)
+                    if 0 < x < 1:
+                        instant_lyap = np.log(abs(r_spectrum * (1 - 2*x)))
+                        lyap_sum += instant_lyap
+                        if i % 10 == 0:  # Record every 10th value
+                            lyap_history.append(lyap_sum / (i + 1))
+                            x_history.append(x)
+                
+                final_lyap = lyap_sum / 10000
+                
+                # Create enhanced analysis plot
+                fig = make_subplots(rows=3, cols=1,
+                                subplot_titles=("Lyapunov Exponent Convergence", 
+                                                "Trajectory in Phase Space",
+                                                "Local Stretching Rates"),
+                                vertical_spacing=0.12,
+                                row_heights=[0.4, 0.3, 0.3])
+                
+                # Convergence plot
+                fig.add_trace(go.Scatter(
+                    y=lyap_history,
+                    mode='lines',
+                    line=dict(color='blue', width=2),
+                    name='LLE'
+                ), row=1, col=1)
+                
+                # Add final value line
+                fig.add_hline(y=final_lyap, line_dash="dash", line_color="red", 
+                            row=1, col=1, opacity=0.5,
+                            annotation_text=f"λ = {final_lyap:.4f}")
+                
+                # Phase space trajectory
+                fig.add_trace(go.Scatter(
+                    x=x_history[:-1],
+                    y=x_history[1:],
+                    mode='markers',
+                    marker=dict(size=3, color=list(range(len(x_history)-1)), 
+                            colorscale='Viridis', showscale=False),
+                    name='Trajectory'
+                ), row=2, col=1)
+                
+                # Add y=x line
+                fig.add_trace(go.Scatter(
+                    x=[0, 1], y=[0, 1],
+                    mode='lines',
+                    line=dict(color='gray', dash='dash'),
+                    name='y=x'
+                ), row=2, col=1)
+                
+                # Local stretching rates histogram
+                stretching_rates = []
+                x = 0.5
+                for _ in range(1000):
+                    x = r_spectrum * x * (1 - x)
+                for _ in range(1000):
+                    x = r_spectrum * x * (1 - x)
+                    if 0 < x < 1:
+                        stretching_rates.append(abs(r_spectrum * (1 - 2*x)))
+                
+                fig.add_trace(go.Histogram(
+                    x=stretching_rates,
+                    nbinsx=50,
+                    marker=dict(color='lightblue'),
+                    name='Stretching'
+                ), row=3, col=1)
+                
+                # Add stretching = 1 line (chaos boundary)
+                fig.add_vline(x=1, line_dash="dash", line_color="red", 
+                            row=3, col=1, opacity=0.5,
+                            annotation_text="Stretching = 1")
+                
+                # Zero line for convergence
+                fig.add_hline(y=0, line_dash="dot", line_color="gray", row=1, col=1)
+                
+                fig.update_layout(
+                    title=f"Enhanced Lyapunov Analysis - Logistic Map (r = {r_spectrum:.3f})",
+                    height=900,
+                    template="plotly_white",
+                    showlegend=False
+                )
+                
+                fig.update_xaxes(title_text="Iteration (×10)", row=1, col=1)
+                fig.update_xaxes(title_text="x_n", row=2, col=1)
+                fig.update_xaxes(title_text="Local Stretching Rate", row=3, col=1)
+                
+                fig.update_yaxes(title_text="LLE", row=1, col=1)
+                fig.update_yaxes(title_text="x_{n+1}", row=2, col=1)
+                fig.update_yaxes(title_text="Frequency", row=3, col=1)
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Show interpretation guide
+                with st.expander("📖 How to interpret this analysis", expanded=True):
+                    st.markdown(f"""
+                    **Single Lyapunov Exponent:**
+                    - λ = {final_lyap:.4f} → System is {"chaotic" if final_lyap > 0 else "stable/periodic"}
+                    
+                    **Phase space plot (middle):**
+                    - Points on diagonal: Fixed points
+                    - Boxes: Period-2 cycle
+                    - Complex patterns: Higher periods or chaos
+                    - Color progression shows time evolution
+                    
+                    **Stretching rate distribution (bottom):**
+                    - Values > 1: Local expansion
+                    - Values < 1: Local contraction
+                    - Wide distribution: Varying dynamics across attractor
+                    - Peak location: Most common stretching factor
+                    
+                    **For r = {r_spectrum:.3f}:**
+                    """)
+                    
+                    if final_lyap > 0:
+                        st.markdown(f"""
+                        - **Chaotic regime** with positive Lyapunov exponent
+                        - Predictability time: ~{1/final_lyap:.1f} iterations
+                        - Average stretching: {np.exp(final_lyap):.3f}× per iteration
+                        """)
+                    elif abs(final_lyap) < 0.001:
+                        st.markdown("""
+                        - **Marginally stable** (likely at bifurcation point)
+                        - System transitioning between periodic and chaotic
+                        - Very slow convergence/divergence
+                        """)
+                    else:
+                        period = "fixed point" if r_spectrum < 3 else "periodic orbit"
+                        st.markdown(f"""
+                        - **Stable {period}** with negative Lyapunov exponent
+                        - Perturbations decay by factor {np.exp(-abs(final_lyap)):.3f} per iteration
+                        - Convergence time: ~{1/abs(final_lyap):.1f} iterations
+                        """)
+                
+                # Metrics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Lyapunov Exp.", f"{final_lyap:.4f}",
+                            delta="Chaotic" if final_lyap > 0 else "Stable")
+                with col2:
+                    avg_stretch = np.mean(stretching_rates) if stretching_rates else 0
+                    st.metric("Avg Stretching", f"{avg_stretch:.3f}")
+                with col3:
+                    if final_lyap != 0:
+                        st.metric("Predictability", f"{abs(1/final_lyap):.1f} iter")
+                    else:
+                        st.metric("Predictability", "∞")
+                
+                # Additional info box
+                st.info(f"""
+                💡 **Note for 1D maps**: 
+                - Only one Lyapunov exponent exists (system is 1-dimensional)
+                - The exponent fully characterizes the dynamics
+                - Compare with bifurcation diagram at r = {r_spectrum:.3f}
+                - Chaos occurs when λ > 0 (average stretching > 1)
+                """)
     
     # Theory expander
     with st.expander("📚 Theoretical Background", expanded=False):
