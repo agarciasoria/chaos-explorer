@@ -4853,7 +4853,7 @@ with tabs[3]:  # Lyapunov Exponents tab
                     t += dt_duff
                     
                     if int(t / integration_time * 100) % 5 == 0:
-                        progress_bar.progress(t / integration_time)
+                        progress_bar.progress(min(t / integration_time, 1.0))
                 
                 progress_bar.empty()
                 
@@ -5014,7 +5014,7 @@ with tabs[3]:  # Lyapunov Exponents tab
                     t += dt_vdp
                     
                     if int(t / integration_time * 100) % 5 == 0:
-                        progress_bar.progress(t / integration_time)
+                        progress_bar.progress(min(t / integration_time, 1.0))
                 
                 progress_bar.empty()
                 
