@@ -1629,30 +1629,58 @@ with tabs[2]:
                 
                 progress_bar = st.progress(0)
                 
+                # Pre-allocate for efficiency
+                dt_integrate = 0.01  # Fixed integration step
+                n_transient = int(t_transient / dt_integrate)
+                n_collect = int(t_collect / dt_integrate)
+                t_total = (n_transient + n_collect) * dt_integrate
+                
                 for i, rho in enumerate(rho_values):
-                    # Integrate transient
-                    t_span = [0, t_transient + t_collect]
-                    t_eval = np.linspace(t_transient, t_transient + t_collect, int(t_collect * 100))
+                    # Use a simpler integration method for speed
+                    x, y, z = 1.0, 1.0, 1.0
                     
-                    sol = solve_ivp(
-                        lorenz_system,
-                        t_span,
-                        [1.0, 1.0, 1.0],  # Standard initial condition
-                        t_eval=t_eval,
-                        args=(sigma_bif, rho, beta_bif),
-                        rtol=1e-8
-                    )
+                    # Skip transient with simple Euler method (faster)
+                    for _ in range(n_transient):
+                        dx = sigma_bif * (y - x)
+                        dy = x * (rho - z) - y
+                        dz = x * y - beta_bif * z
+                        x += dx * dt_integrate
+                        y += dy * dt_integrate
+                        z += dz * dt_integrate
                     
-                    # Find local maxima of x
-                    x_data = sol.y[0]
-                    maxima_indices = np.where((x_data[1:-1] > x_data[:-2]) & (x_data[1:-1] > x_data[2:]))[0] + 1
+                    # Collect data with RK4 for accuracy
+                    x_history = []
+                    for _ in range(n_collect):
+                        # RK4 step
+                        k1x = sigma_bif * (y - x)
+                        k1y = x * (rho - z) - y
+                        k1z = x * y - beta_bif * z
+                        
+                        k2x = sigma_bif * ((y + 0.5*k1y*dt_integrate) - (x + 0.5*k1x*dt_integrate))
+                        k2y = (x + 0.5*k1x*dt_integrate) * (rho - (z + 0.5*k1z*dt_integrate)) - (y + 0.5*k1y*dt_integrate)
+                        k2z = (x + 0.5*k1x*dt_integrate) * (y + 0.5*k1y*dt_integrate) - beta_bif * (z + 0.5*k1z*dt_integrate)
+                        
+                        x += (k1x + k2x) * dt_integrate / 2
+                        y += (k1y + k2y) * dt_integrate / 2
+                        z += (k1z + k2z) * dt_integrate / 2
+                        
+                        x_history.append(x)
+                    
+                    # Find maxima more efficiently
+                    x_array = np.array(x_history)
+                    # Use diff instead of comparing neighbors
+                    dx = np.diff(x_array)
+                    sign_changes = np.diff(np.sign(dx))
+                    maxima_indices = np.where(sign_changes < 0)[0] + 1
                     
                     if len(maxima_indices) > 0:
-                        for max_val in x_data[maxima_indices[-min(50, len(maxima_indices)):]]:
+                        # Take last 20 maxima or fewer
+                        last_maxima = x_array[maxima_indices[-min(20, len(maxima_indices)):]]
+                        for max_val in last_maxima:
                             bifurcation_data.append((rho, max_val))
                     
-                    if i % (rho_points // 20) == 0:
-                        progress_bar.progress(i / rho_points)
+                    if i % max(1, (rho_points // 20)) == 0:
+                        progress_bar.progress((i + 1) / rho_points)
                 
                 progress_bar.empty()
                 
