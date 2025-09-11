@@ -2648,6 +2648,22 @@ with tabs[3]:  # Lyapunov Exponents tab
             multiple_runs = st.number_input("Ensemble runs", value=1, min_value=1, max_value=10)
             show_theory = st.checkbox("Show theoretical predictions", value=True)
     
+    # Add convergence-specific controls BEFORE the compute button
+    if viz_type == "Convergence Plot":
+        st.markdown("---")
+        if system == "Logistic Map":
+            r_convergence = st.slider("Select r value for convergence analysis", 
+                                    r_min, r_max, 3.8, step=0.01,
+                                    key="r_convergence_slider")
+        elif system == "Lorenz System":
+            rho_convergence = st.slider("Select ρ value for convergence analysis", 
+                                    rho_min, rho_max, 28.0, step=0.1,
+                                    key="rho_convergence_slider")
+        elif system == "Hénon Map":
+            a_convergence = st.slider("Select a value for convergence analysis", 
+                                    a_min, a_max, 1.4, step=0.01,
+                                    key="a_convergence_slider")
+    
     # Add tips before compute button
     st.markdown("---")
     with st.expander("💡 Quick Tips", expanded=False):
@@ -2913,15 +2929,15 @@ with tabs[3]:  # Lyapunov Exponents tab
         elif viz_type == "Convergence Plot":
             # Show convergence of Lyapunov exponent over time
             if system == "Logistic Map":
-                r = st.slider("Select r value", r_min, r_max, 3.8)
+                
                 
                 x = 0.5
                 lyap_values = []
                 lyap_running_avg = []
                 
-                # Skip initial transient
+                 # Skip initial transient
                 for _ in range(100):
-                    x = r * x * (1 - x)
+                    x = r_convergence * x * (1 - x)  # Use r_convergence here
                 
                 # Compute and track convergence
                 lyap_sum = 0
