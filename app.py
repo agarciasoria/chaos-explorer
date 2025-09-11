@@ -1945,74 +1945,98 @@ with tabs[2]:
                 progress_bar = st.progress(0)
                 
                 for i, mu in enumerate(mu_values):
-                    # Adaptive parameters based on μ
-                    # For small μ, oscillations are nearly sinusoidal
-                    # For large μ, we have relaxation oscillations
-                    if mu < 0.5:
-                        dt_vdp = 0.1
-                        t_transient_adaptive = min(t_transient_vdp, 50)
-                        t_collect_adaptive = min(t_collect_vdp, 50)
-                    elif mu < 2:
-                        dt_vdp = 0.05
-                        t_transient_adaptive = t_transient_vdp
-                        t_collect_adaptive = t_collect_vdp
-                    else:  # Large μ - relaxation oscillations
-                        dt_vdp = 0.01
-                        t_transient_adaptive = min(t_transient_vdp, 20)
-                        t_collect_adaptive = min(t_collect_vdp, 40)
-                    
-                    n_transient = int(t_transient_adaptive / dt_vdp)
-                    n_collect = int(t_collect_adaptive / dt_vdp)
-                    
-                    x, v = 2.0, 0.0  # Initial conditions
-                    
-                    # Skip transient
-                    for _ in range(n_transient):
-                        # Simplified RK2 for transient (faster)
-                        k1x = v
-                        k1v = mu * (1 - x**2) * v - x
-                        
-                        x += dt_vdp * (k1x + v + 0.5*dt_vdp*k1v) / 2
-                        v += dt_vdp * (k1v + mu * (1 - (x + 0.5*dt_vdp*k1x)**2) * (v + 0.5*dt_vdp*k1v) - (x + 0.5*dt_vdp*k1x)) / 2
-                    
-                    # For large μ, we can use theoretical approximation
-                    if mu > 3:
-                        # Theoretical amplitude for large μ
-                        amplitude = 2.0
-                        bifurcation_data.append((mu, amplitude))
-                        bifurcation_data.append((mu, -amplitude))
+                    if mu <= 0:
+                        # No limit cycle for μ ≤ 0
+                        bifurcation_data.append((mu, 0))
                     else:
-                        # Collect extrema for small/medium μ
-                        extrema = []
-                        x_history = []
+                        # For μ > 0, limit cycle exists
+                        # Adaptive initial conditions and integration
+                        if mu < 0.1:
+                            # Near Hopf bifurcation - small amplitude
+                            x0, v0 = 0.1, 0.0
+                            dt_vdp = 0.1
+                            t_transient_adaptive = 50
+                            t_collect_adaptive = 30
+                        elif mu < 1:
+                            # Moderate μ - growing amplitude
+                            x0, v0 = 0.5, 0.0
+                            dt_vdp = 0.05
+                            t_transient_adaptive = 40
+                            t_collect_adaptive = 40
+                        else:
+                            # Large μ - relaxation oscillations
+                            x0, v0 = 2.0, 0.0
+                            dt_vdp = 0.01
+                            t_transient_adaptive = 30
+                            t_collect_adaptive = 30
                         
-                        for _ in range(n_collect):
-                            # RK4 for accuracy
+                        n_transient = int(t_transient_adaptive / dt_vdp)
+                        n_collect = int(t_collect_adaptive / dt_vdp)
+                        
+                        x, v = x0, v0
+                        
+                        # Skip transient
+                        for _ in range(n_transient):
+                            # RK4 step
                             k1x = v
                             k1v = mu * (1 - x**2) * v - x
                             
                             k2x = v + 0.5*dt_vdp*k1v
                             k2v = mu * (1 - (x + 0.5*dt_vdp*k1x)**2) * (v + 0.5*dt_vdp*k1v) - (x + 0.5*dt_vdp*k1x)
                             
-                            x += dt_vdp * (k1x + 2*k2x) / 3
-                            v += dt_vdp * (k1v + 2*k2v) / 3
+                            k3x = v + 0.5*dt_vdp*k2v
+                            k3v = mu * (1 - (x + 0.5*dt_vdp*k2x)**2) * (v + 0.5*dt_vdp*k2v) - (x + 0.5*dt_vdp*k2x)
                             
-                            x_history.append(x)
+                            k4x = v + dt_vdp*k3v
+                            k4v = mu * (1 - (x + dt_vdp*k3x)**2) * (v + dt_vdp*k3v) - (x + dt_vdp*k3x)
+                            
+                            x += dt_vdp * (k1x + 2*k2x + 2*k3x + k4x) / 6
+                            v += dt_vdp * (k1v + 2*k2v + 2*k3v + k4v) / 6
                         
-                        # Find extrema efficiently
-                        if len(x_history) > 2:
-                            x_array = np.array(x_history)
-                            # Use diff to find sign changes in derivative
-                            dx = np.diff(x_array)
-                            sign_changes = np.where(np.diff(np.sign(dx)))[0]
+                        # Collect maxima
+                        x_max_list = []
+                        x_min_list = []
+                        x_prev = x
+                        
+                        for _ in range(n_collect):
+                            # RK4 step (same as above)
+                            k1x = v
+                            k1v = mu * (1 - x**2) * v - x
                             
-                            if len(sign_changes) > 0:
-                                extrema_indices = sign_changes + 1
-                                extrema = x_array[extrema_indices[-min(10, len(extrema_indices)):]]
-                                
-                                for e in extrema:
-                                    if abs(e) > 0.01:  # Filter noise
-                                        bifurcation_data.append((mu, e))
+                            k2x = v + 0.5*dt_vdp*k1v
+                            k2v = mu * (1 - (x + 0.5*dt_vdp*k1x)**2) * (v + 0.5*dt_vdp*k1v) - (x + 0.5*dt_vdp*k1x)
+                            
+                            x_new = x + dt_vdp * (k1x + k2x)
+                            v_new = v + dt_vdp * (k1v + k2v)
+                            
+                            # Detect maxima/minima
+                            if x_prev < x and x > x_new:  # Maximum
+                                x_max_list.append(x)
+                            elif x_prev > x and x < x_new:  # Minimum
+                                x_min_list.append(x)
+                            
+                            x_prev = x
+                            x, v = x_new, v_new
+                        
+                        # Add extrema to bifurcation data
+                        if x_max_list:
+                            # Average of last few maxima
+                            avg_max = np.mean(x_max_list[-5:]) if len(x_max_list) > 5 else np.mean(x_max_list)
+                            bifurcation_data.append((mu, avg_max))
+                        
+                        if x_min_list:
+                            # Average of last few minima
+                            avg_min = np.mean(x_min_list[-5:]) if len(x_min_list) > 5 else np.mean(x_min_list)
+                            bifurcation_data.append((mu, avg_min))
+                        
+                        # If no extrema found (shouldn't happen for μ > 0), use theoretical
+                        if not x_max_list and not x_min_list:
+                            if mu < 0.1:
+                                amplitude = 2 * np.sqrt(mu)  # Small μ approximation
+                            else:
+                                amplitude = 2.0  # Large μ approximation
+                            bifurcation_data.append((mu, amplitude))
+                            bifurcation_data.append((mu, -amplitude))
                     
                     if i % max(1, (mu_points // 20)) == 0:
                         progress_bar.progress((i + 1) / mu_points)
@@ -2052,16 +2076,44 @@ with tabs[2]:
                 )
                 
                 # Add theoretical curve for large μ
+                # Add theoretical curve for Van der Pol
                 if show_theory:
-                    mu_theory = np.linspace(max(1, mu_min), mu_max, 100)
-                    amplitude_theory = 2 * np.ones_like(mu_theory)  # Approximate amplitude for large μ
+                    mu_theory = np.linspace(max(0.01, mu_min), mu_max, 100)
+                    
+                    # Theoretical amplitudes
+                    amplitude_theory = []
+                    for mu in mu_theory:
+                        if mu < 0.1:
+                            # Near Hopf bifurcation: amplitude ∝ √μ
+                            amp = 2 * np.sqrt(mu)
+                        else:
+                            # Transition to relaxation oscillations
+                            # Amplitude approaches 2 as 2(1 - exp(-μ/2))
+                            amp = 2 * (1 - np.exp(-mu/2))
+                        amplitude_theory.append(amp)
+                    
+                    amplitude_theory = np.array(amplitude_theory)
+                    
+                    # Plot positive and negative branches
                     fig.add_trace(go.Scatter(
                         x=mu_theory,
                         y=amplitude_theory,
                         mode='lines',
                         line=dict(color='red', dash='dash'),
-                        name='Theoretical amplitude ≈ 2'
+                        name='Theoretical amplitude'
                     ))
+                    fig.add_trace(go.Scatter(
+                        x=mu_theory,
+                        y=-amplitude_theory,
+                        mode='lines',
+                        line=dict(color='red', dash='dash'),
+                        showlegend=False
+                    ))
+                    
+                    # Add Hopf bifurcation point
+                    fig.add_vline(x=0, line_dash="dash", line_color="green", opacity=0.5)
+                    fig.add_annotation(x=0, y=0.95, text="Hopf bifurcation", 
+                                    showarrow=False, textangle=-90, yref="paper")
                 
                 st.plotly_chart(fig, use_container_width=True)
                 st.session_state.bifurcation_data = bifurcation_data
