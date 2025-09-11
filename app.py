@@ -1988,15 +1988,6 @@ with tabs[2]:
                         bgcolor="rgba(255,255,255,0.8)"
                     )
                     
-                    # Fixed point loses stability at a = 3/4
-                    if a_min <= 0.75 <= a_max:
-                        fig.add_vline(x=0.75, line_dash="dash", line_color="green", opacity=0.5)
-                        fig.add_annotation(
-                            x=0.75, y=0.05, 
-                            text="Fixed point loses stability",
-                            showarrow=False, textangle=-90, yref="paper",
-                            font=dict(size=10)
-                        )
                     
                     # Period-2 bifurcation around a = 1.0
                     if a_min <= 1.0 <= a_max:
