@@ -1744,35 +1744,68 @@ with tabs[2]:
                 
                 progress_bar = st.progress(0)
                 
-                def duffing_system(t, state, delta, alpha, beta, gamma, omega):
-                    x, v = state
-                    dxdt = v
-                    dvdt = -delta*v - alpha*x - beta*x**3 + gamma*np.cos(omega*t)
-                    return [dxdt, dvdt]
+                # Pre-compute integration parameters
+                period = 2 * np.pi / omega_duff
+                dt_duff = period / 100  # 100 steps per period
                 
                 for i, gamma in enumerate(gamma_values):
-                    # Integration parameters
-                    period = 2 * np.pi / omega_duff
-                    t_span = [0, (periods_transient + periods_collect) * period]
+                    x, v = 0.1, 0.0  # Initial conditions
+                    t = 0.0
                     
-                    # Poincaré sampling times (phase = 0)
-                    sample_times = np.arange(periods_transient, periods_transient + periods_collect) * period
-                    
-                    sol = solve_ivp(
-                        duffing_system,
-                        t_span,
-                        [0.1, 0.0],  # Initial conditions
-                        t_eval=sample_times,
-                        args=(delta_duff, alpha_duff, beta_duff, gamma, omega_duff),
-                        rtol=1e-8
-                    )
+                    # Skip transient using RK4 (faster than solve_ivp)
+                    for _ in range(periods_transient):
+                        # Integrate for one period
+                        for _ in range(100):  # 100 steps per period
+                            # RK4 integration
+                            k1x = v
+                            k1v = -delta_duff*v - alpha_duff*x - beta_duff*x**3 + gamma*np.cos(omega_duff*t)
+                            
+                            k2x = v + 0.5*dt_duff*k1v
+                            k2v = -delta_duff*(v + 0.5*dt_duff*k1v) - alpha_duff*(x + 0.5*dt_duff*k1x) - \
+                                beta_duff*(x + 0.5*dt_duff*k1x)**3 + gamma*np.cos(omega_duff*(t + 0.5*dt_duff))
+                            
+                            k3x = v + 0.5*dt_duff*k2v
+                            k3v = -delta_duff*(v + 0.5*dt_duff*k2v) - alpha_duff*(x + 0.5*dt_duff*k2x) - \
+                                beta_duff*(x + 0.5*dt_duff*k2x)**3 + gamma*np.cos(omega_duff*(t + 0.5*dt_duff))
+                            
+                            k4x = v + dt_duff*k3v
+                            k4v = -delta_duff*(v + dt_duff*k3v) - alpha_duff*(x + dt_duff*k3x) - \
+                                beta_duff*(x + dt_duff*k3x)**3 + gamma*np.cos(omega_duff*(t + dt_duff))
+                            
+                            x += dt_duff * (k1x + 2*k2x + 2*k3x + k4x) / 6
+                            v += dt_duff * (k1v + 2*k2v + 2*k3v + k4v) / 6
+                            t += dt_duff
                     
                     # Collect Poincaré points
-                    for j in range(len(sol.t)):
-                        bifurcation_data.append((gamma, sol.y[0, j]))
+                    poincare_points = []
+                    for _ in range(periods_collect):
+                        # Integrate for one period and record at t = 0 (mod period)
+                        for step in range(100):
+                            # Same RK4 as above
+                            k1x = v
+                            k1v = -delta_duff*v - alpha_duff*x - beta_duff*x**3 + gamma*np.cos(omega_duff*t)
+                            
+                            k2x = v + 0.5*dt_duff*k1v
+                            k2v = -delta_duff*(v + 0.5*dt_duff*k1v) - alpha_duff*(x + 0.5*dt_duff*k1x) - \
+                                beta_duff*(x + 0.5*dt_duff*k1x)**3 + gamma*np.cos(omega_duff*(t + 0.5*dt_duff))
+                            
+                            k3x = v + 0.5*dt_duff*k2v
+                            k3v = -delta_duff*(v + 0.5*dt_duff*k2v) - alpha_duff*(x + 0.5*dt_duff*k2x) - \
+                                beta_duff*(x + 0.5*dt_duff*k2x)**3 + gamma*np.cos(omega_duff*(t + 0.5*dt_duff))
+                            
+                            k4x = v + dt_duff*k3v
+                            k4v = -delta_duff*(v + dt_duff*k3v) - alpha_duff*(x + dt_duff*k3x) - \
+                                beta_duff*(x + dt_duff*k3x)**3 + gamma*np.cos(omega_duff*(t + dt_duff))
+                            
+                            x += dt_duff * (k1x + 2*k2x + 2*k3x + k4x) / 6
+                            v += dt_duff * (k1v + 2*k2v + 2*k3v + k4v) / 6
+                            t += dt_duff
+                        
+                        # Record Poincaré point at the end of each period
+                        bifurcation_data.append((gamma, x))
                     
-                    if i % (gamma_points // 20) == 0:
-                        progress_bar.progress(i / gamma_points)
+                    if i % max(1, (gamma_points // 20)) == 0:
+                        progress_bar.progress((i + 1) / gamma_points)
                 
                 progress_bar.empty()
                 
@@ -1801,6 +1834,45 @@ with tabs[2]:
                     height=600,
                     template="plotly_white"
                 )
+                
+                # Add annotations for key transitions
+                if show_theory:
+                    # The exact bifurcation points depend on the parameters
+                    # For typical Duffing parameters (δ=0.3, α=-1, β=1, ω=1.2):
+                    
+                    if abs(delta_duff - 0.3) < 0.1 and abs(alpha_duff + 1) < 0.1 and abs(beta_duff - 1) < 0.1 and abs(omega_duff - 1.2) < 0.1:
+                        # Standard Duffing oscillator bifurcations
+                        fig.add_vline(x=0.18, line_dash="dash", line_color="green", opacity=0.5)
+                        fig.add_annotation(x=0.18, y=0.05, text="Period-1", showarrow=False, textangle=-90, yref="paper")
+                        
+                        fig.add_vline(x=0.22, line_dash="dash", line_color="orange", opacity=0.5)
+                        fig.add_annotation(x=0.22, y=0.95, text="Period-doubling", showarrow=False, textangle=-90, yref="paper")
+                        
+                        fig.add_vline(x=0.28, line_dash="dash", line_color="red", opacity=0.5)
+                        fig.add_annotation(x=0.28, y=0.05, text="Chaos onset", showarrow=False, textangle=-90, yref="paper")
+                        
+                        fig.add_vline(x=0.37, line_dash="dash", line_color="blue", opacity=0.5)
+                        fig.add_annotation(x=0.37, y=0.95, text="Period-3 window", showarrow=False, textangle=-90, yref="paper")
+                    
+                    else:
+                        # For non-standard parameters, add general guidance
+                        # Estimate based on forcing strength
+                        gamma_range = gamma_max - gamma_min
+                        
+                        # Add parameter annotation
+                        param_text = f"δ={delta_duff:.2f}, α={alpha_duff:.1f}, β={beta_duff:.1f}, ω={omega_duff:.2f}"
+                        fig.add_annotation(x=0.5, y=0.98, text=param_text, 
+                                        xref="paper", yref="paper", showarrow=False,
+                                        bgcolor="rgba(255,255,255,0.8)")
+                        
+                        # Add spring type annotation
+                        if abs(beta_duff) > 0.1:  # Nonlinear case
+                            fig.add_annotation(
+                                x=0.02, y=0.5, xref="paper", yref="paper",
+                                text="Hardening spring" if beta_duff > 0 else "Softening spring",
+                                showarrow=False, bgcolor="rgba(255,255,255,0.8)",
+                                bordercolor="gray", borderwidth=1
+                            )
                 
                 st.plotly_chart(fig, use_container_width=True)
                 st.session_state.bifurcation_data = bifurcation_data
