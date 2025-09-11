@@ -3034,6 +3034,556 @@ with tabs[3]:  # Lyapunov Exponents tab
                     last_100 = lyap_running_avg[-100:]
                     variation = np.std(last_100) if len(last_100) > 1 else 0
                     st.metric("Convergence σ", f"{variation:.6f}")
+
+            elif system == "Lorenz System":
+                # Initial conditions
+                state = np.array([1.0, 1.0, 1.0])
+                perturbation = np.array([1e-8, 0, 0])
+                perturbation /= np.linalg.norm(perturbation)
+                
+                lyap_values = []
+                lyap_running_avg = []
+                
+                # Skip initial transient
+                t = 0
+                transient_time = 50
+                while t < transient_time:
+                    # RK4 integration for state
+                    k1 = np.array([sigma * (state[1] - state[0]),
+                                state[0] * (rho_convergence - state[2]) - state[1],
+                                state[0] * state[1] - beta * state[2]])
+                    k2_state = state + 0.5 * dt * k1
+                    k2 = np.array([sigma * (k2_state[1] - k2_state[0]),
+                                k2_state[0] * (rho_convergence - k2_state[2]) - k2_state[1],
+                                k2_state[0] * k2_state[1] - beta * k2_state[2]])
+                    state += dt * k2
+                    t += dt
+                
+                # Compute and track convergence
+                t = 0
+                lyap_sum = 0
+                n_steps = 0
+                renorm_count = 0
+                
+                while t < integration_time:
+                    # Store old state for perturbation evolution
+                    old_state = state.copy()
+                    
+                    # Evolve state
+                    k1 = np.array([sigma * (state[1] - state[0]),
+                                state[0] * (rho_convergence - state[2]) - state[1],
+                                state[0] * state[1] - beta * state[2]])
+                    k2_state = state + 0.5 * dt * k1
+                    k2 = np.array([sigma * (k2_state[1] - k2_state[0]),
+                                k2_state[0] * (rho_convergence - k2_state[2]) - k2_state[1],
+                                k2_state[0] * k2_state[1] - beta * k2_state[2]])
+                    state += dt * k2
+                    
+                    # Evolve perturbation
+                    perturbed = old_state + perturbation
+                    k1p = np.array([sigma * (perturbed[1] - perturbed[0]),
+                                perturbed[0] * (rho_convergence - perturbed[2]) - perturbed[1],
+                                perturbed[0] * perturbed[1] - beta * perturbed[2]])
+                    k2_perturbed = perturbed + 0.5 * dt * k1p
+                    k2p = np.array([sigma * (k2_perturbed[1] - k2_perturbed[0]),
+                                k2_perturbed[0] * (rho_convergence - k2_perturbed[2]) - k2_perturbed[1],
+                                k2_perturbed[0] * k2_perturbed[1] - beta * k2_perturbed[2]])
+                    perturbed += dt * k2p
+                    
+                    # Update perturbation vector
+                    perturbation = perturbed - state
+                    
+                    # Renormalization and Lyapunov calculation
+                    if (renorm_count + 1) * renorm_interval <= t:
+                        d = np.linalg.norm(perturbation)
+                        if d > 0:
+                            instant_lyap = np.log(d) / renorm_interval
+                            lyap_sum += np.log(d)
+                            renorm_count += 1
+                            
+                            lyap_values.append(instant_lyap)
+                            lyap_running_avg.append(lyap_sum / (renorm_count * renorm_interval))
+                            
+                            # Renormalize
+                            perturbation /= d
+                    
+                    t += dt
+                    n_steps += 1
+                
+                # Create convergence plot
+                fig = make_subplots(rows=2, cols=1, 
+                                subplot_titles=("Instantaneous Lyapunov Exponent", 
+                                                "Running Average"),
+                                vertical_spacing=0.1)
+                
+                # Instantaneous values
+                fig.add_trace(go.Scatter(
+                    y=lyap_values,
+                    mode='lines',
+                    line=dict(color='lightblue', width=1),
+                    name='Instantaneous'
+                ), row=1, col=1)
+                
+                # Running average
+                fig.add_trace(go.Scatter(
+                    y=lyap_running_avg,
+                    mode='lines',
+                    line=dict(color='blue', width=2),
+                    name='Running Average'
+                ), row=2, col=1)
+                
+                # Add final value line
+                if len(lyap_running_avg) > 0:
+                    final_value = lyap_running_avg[-1]
+                    fig.add_hline(y=final_value, line_dash="dash", line_color="red", 
+                                row=2, col=1, opacity=0.5)
+                    
+                    # Add zero line for reference
+                    fig.add_hline(y=0, line_dash="dot", line_color="gray", 
+                                row=2, col=1, opacity=0.3)
+                
+                fig.update_xaxes(title_text="Renormalization Step", row=2, col=1)
+                fig.update_yaxes(title_text="LLE", row=1, col=1)
+                fig.update_yaxes(title_text="Average LLE", row=2, col=1)
+                
+                fig.update_layout(
+                    title=f"Lyapunov Exponent Convergence (ρ = {rho_convergence:.2f})",
+                    height=700,
+                    template="plotly_white",
+                    showlegend=False
+                )
+                
+                # Add annotation about convergence quality
+                if len(lyap_running_avg) > 100:
+                    convergence_quality = "Good" if np.std(lyap_running_avg[-100:]) < 0.01 else "Moderate"
+                else:
+                    convergence_quality = "Insufficient data"
+                    
+                fig.add_annotation(
+                    x=0.98, y=0.98, xref="paper", yref="paper",
+                    text=f"Convergence: {convergence_quality}",
+                    showarrow=False, 
+                    bgcolor="lightgreen" if convergence_quality == "Good" else "lightyellow" if convergence_quality == "Moderate" else "lightcoral"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Show interpretation guide
+                with st.expander("📖 How to interpret this plot", expanded=True):
+                    if len(lyap_running_avg) > 0:
+                        st.markdown(f"""
+                        **What you're seeing:**
+                        - **Top panel**: Instantaneous stretching rates at each renormalization
+                        - **Bottom panel**: Average converging to true Lyapunov exponent ≈ {final_value:.4f}
+                        
+                        **Convergence quality indicators:**
+                        - **Good**: Flat line in bottom panel, small fluctuations
+                        - **Moderate**: Some trending but stabilizing
+                        - **Poor**: Still trending or large oscillations
+                        - **Current**: {convergence_quality}
+                        
+                        **For ρ = {rho_convergence:.2f}:**
+                        - LLE = {final_value:.4f} → System is {"chaotic" if final_value > 0 else "stable/periodic"}
+                        - {"This is in the chaotic regime (strange attractor)" if final_value > 0 else "This is below the chaos threshold"}
+                        - For reference: Classic Lorenz (ρ=28) has LLE ≈ 0.906
+                        """)
+                    else:
+                        st.markdown("No data computed yet. Adjust parameters and try again.")
+                
+                # Convergence metrics
+                if len(lyap_running_avg) > 0:
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Final LLE", f"{final_value:.4f}")
+                    with col2:
+                        if final_value > 0:
+                            st.metric("System State", "Chaotic", delta="Positive LLE")
+                        else:
+                            st.metric("System State", "Stable", delta="Negative LLE")
+                    with col3:
+                        # Estimate convergence rate
+                        if len(lyap_running_avg) > 100:
+                            last_100 = lyap_running_avg[-100:]
+                            variation = np.std(last_100)
+                            st.metric("Convergence σ", f"{variation:.6f}")
+                        else:
+                            st.metric("Convergence σ", "N/A")
+            
+            elif system == "Hénon Map":
+                # Hénon Map convergence plot
+                x, y = 0.0, 0.0  # Initial condition
+                lyap_values = []
+                lyap_running_avg = []
+                
+                # Skip initial transient
+                for _ in range(100):
+                    x_new = 1 - a_convergence * x**2 + y
+                    y_new = b_henon * x
+                    x, y = x_new, y_new
+                
+                # Compute and track convergence
+                lyap_sum = 0
+                for i in range(iterations):
+                    # Jacobian matrix eigenvalues give local stretching
+                    jacobian = np.array([[-2*a_convergence*x, 1],
+                                        [b_henon, 0]])
+                    eigenvalues = np.linalg.eigvals(jacobian)
+                    instant_lyap = np.log(np.max(np.abs(eigenvalues)))
+                    
+                    lyap_sum += instant_lyap
+                    lyap_values.append(instant_lyap)
+                    lyap_running_avg.append(lyap_sum / (i + 1))
+                    
+                    # Update map
+                    x_new = 1 - a_convergence * x**2 + y
+                    y_new = b_henon * x
+                    x, y = x_new, y_new
+                
+                # Create convergence plot
+                fig = make_subplots(rows=2, cols=1, 
+                                subplot_titles=("Instantaneous Lyapunov Exponent", 
+                                                "Running Average"),
+                                vertical_spacing=0.1)
+                
+                # Show only first part of instantaneous values for clarity
+                display_points = min(1000, len(lyap_values))
+                fig.add_trace(go.Scatter(
+                    y=lyap_values[:display_points],
+                    mode='lines',
+                    line=dict(color='lightblue', width=1),
+                    name='Instantaneous'
+                ), row=1, col=1)
+                
+                # Running average
+                fig.add_trace(go.Scatter(
+                    y=lyap_running_avg,
+                    mode='lines',
+                    line=dict(color='blue', width=2),
+                    name='Running Average'
+                ), row=2, col=1)
+                
+                # Add final value line
+                final_value = lyap_running_avg[-1]
+                fig.add_hline(y=final_value, line_dash="dash", line_color="red", 
+                            row=2, col=1, opacity=0.5)
+                
+                # Add zero line
+                fig.add_hline(y=0, line_dash="dot", line_color="gray", 
+                            row=2, col=1, opacity=0.3)
+                
+                fig.update_xaxes(title_text="Iteration", row=2, col=1)
+                fig.update_yaxes(title_text="LLE", row=1, col=1)
+                fig.update_yaxes(title_text="Average LLE", row=2, col=1)
+                
+                fig.update_layout(
+                    title=f"Lyapunov Exponent Convergence (a = {a_convergence:.2f})",
+                    height=700,
+                    template="plotly_white",
+                    showlegend=False
+                )
+                
+                # Convergence quality
+                convergence_quality = "Good" if np.std(lyap_running_avg[-100:]) < 0.01 else "Moderate"
+                fig.add_annotation(
+                    x=0.98, y=0.98, xref="paper", yref="paper",
+                    text=f"Convergence: {convergence_quality}",
+                    showarrow=False, 
+                    bgcolor="lightgreen" if convergence_quality == "Good" else "lightyellow"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Show interpretation
+                with st.expander("📖 How to interpret this plot", expanded=True):
+                    st.markdown(f"""
+                    **For a = {a_convergence:.2f}:**
+                    - LLE = {final_value:.4f} → System is {"chaotic" if final_value > 0 else "stable/periodic"}
+                    - Convergence after ~{len(lyap_running_avg)} iterations
+                    - {"This is in the chaotic regime" if final_value > 0 else "This is in a stable/periodic window"}
+                    
+                    **Hénon Map specifics:**
+                    - Standard chaotic parameters (a=1.4, b=0.3) give LLE ≈ 0.42
+                    - The map contracts area by factor b = {b_henon} each iteration
+                    - Two Lyapunov exponents sum to ln(b) = {np.log(b_henon):.3f}
+                    """)
+                
+                # Convergence metrics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Final LLE", f"{final_value:.4f}")
+                with col2:
+                    if final_value > 0:
+                        st.metric("System State", "Chaotic", delta="Positive LLE")
+                    else:
+                        st.metric("System State", "Stable", delta="Negative LLE")
+                with col3:
+                    # Estimate convergence rate
+                    last_100 = lyap_running_avg[-100:]
+                    variation = np.std(last_100) if len(last_100) > 1 else 0
+                    st.metric("Convergence σ", f"{variation:.6f}")
+            
+            elif system == "Duffing Oscillator":
+                # Duffing oscillator convergence
+                gamma_convergence = st.slider("Select γ value for convergence analysis", 
+                                            gamma_min, gamma_max, (gamma_min + gamma_max)/2, step=0.01,
+                                            key="gamma_convergence_slider")
+                
+                # Initial conditions
+                state = np.array([0.1, 0.0])  # x, x_dot
+                phase = 0.0
+                
+                # For Lyapunov calculation
+                perturbation = np.array([1e-8, 1e-8])
+                perturbation /= np.linalg.norm(perturbation)
+                
+                lyap_values = []
+                lyap_running_avg = []
+                
+                dt_duffing = 0.01
+                renorm_steps = int(1.0 / dt_duffing)  # Renormalize every 1 time unit
+                
+                # Skip transient
+                transient_steps = int(50 / dt_duffing)
+                for _ in range(transient_steps):
+                    # Duffing equation: x'' + delta*x' + alpha*x + beta*x^3 = gamma*cos(omega*t)
+                    x, x_dot = state
+                    x_ddot = -delta * x_dot - alpha * x - beta_duff * x**3 + gamma_convergence * np.cos(omega * phase)
+                    
+                    # Update state
+                    state[0] += x_dot * dt_duffing
+                    state[1] += x_ddot * dt_duffing
+                    phase += omega * dt_duffing
+                
+                # Compute Lyapunov
+                lyap_sum = 0
+                n_renorm = 0
+                
+                for i in range(int(integration_time / dt_duffing)):
+                    # Current state
+                    x, x_dot = state
+                    
+                    # Perturbed state
+                    perturbed = state + perturbation
+                    x_p, x_dot_p = perturbed
+                    
+                    # Accelerations
+                    x_ddot = -delta * x_dot - alpha * x - beta_duff * x**3 + gamma_convergence * np.cos(omega * phase)
+                    x_ddot_p = -delta * x_dot_p - alpha * x_p - beta_duff * x_p**3 + gamma_convergence * np.cos(omega * phase)
+                    
+                    # Update states
+                    state[0] += x_dot * dt_duffing
+                    state[1] += x_ddot * dt_duffing
+                    
+                    perturbed[0] += x_dot_p * dt_duffing
+                    perturbed[1] += x_ddot_p * dt_duffing
+                    
+                    # Update perturbation
+                    perturbation = perturbed - state
+                    
+                    # Renormalize periodically
+                    if (i + 1) % renorm_steps == 0:
+                        d = np.linalg.norm(perturbation)
+                        if d > 0:
+                            instant_lyap = np.log(d) / (renorm_steps * dt_duffing)
+                            lyap_sum += np.log(d)
+                            n_renorm += 1
+                            
+                            lyap_values.append(instant_lyap)
+                            lyap_running_avg.append(lyap_sum / (n_renorm * renorm_steps * dt_duffing))
+                            
+                            perturbation /= d
+                    
+                    phase += omega * dt_duffing
+                
+                # Create plot
+                fig = make_subplots(rows=2, cols=1, 
+                                subplot_titles=("Instantaneous Lyapunov Exponent", 
+                                                "Running Average"),
+                                vertical_spacing=0.1)
+                
+                # Instantaneous values
+                fig.add_trace(go.Scatter(
+                    y=lyap_values,
+                    mode='lines',
+                    line=dict(color='lightblue', width=1),
+                    name='Instantaneous'
+                ), row=1, col=1)
+                
+                # Running average
+                fig.add_trace(go.Scatter(
+                    y=lyap_running_avg,
+                    mode='lines',
+                    line=dict(color='blue', width=2),
+                    name='Running Average'
+                ), row=2, col=1)
+                
+                if len(lyap_running_avg) > 0:
+                    final_value = lyap_running_avg[-1]
+                    fig.add_hline(y=final_value, line_dash="dash", line_color="red", 
+                                row=2, col=1, opacity=0.5)
+                
+                fig.add_hline(y=0, line_dash="dot", line_color="gray", 
+                            row=2, col=1, opacity=0.3)
+                
+                fig.update_xaxes(title_text="Renormalization Step", row=2, col=1)
+                fig.update_yaxes(title_text="LLE", row=1, col=1)
+                fig.update_yaxes(title_text="Average LLE", row=2, col=1)
+                
+                fig.update_layout(
+                    title=f"Lyapunov Exponent Convergence (γ = {gamma_convergence:.2f})",
+                    height=700,
+                    template="plotly_white",
+                    showlegend=False
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Interpretation
+                if len(lyap_running_avg) > 0:
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Final LLE", f"{final_value:.4f}")
+                    with col2:
+                        st.metric("System State", "Chaotic" if final_value > 0 else "Regular")
+                    with col3:
+                        if len(lyap_running_avg) > 100:
+                            st.metric("Convergence σ", f"{np.std(lyap_running_avg[-100:]):.6f}")
+            
+            elif system == "Van der Pol Oscillator":
+                # Van der Pol convergence
+                mu_convergence = st.slider("Select μ value for convergence analysis", 
+                                        mu_min, mu_max, (mu_min + mu_max)/2, step=0.1,
+                                        key="mu_convergence_slider")
+                
+                # Initial conditions on limit cycle
+                if mu_convergence < 0.1:
+                    state = np.array([2.0, 0.0])
+                else:
+                    # Approximate limit cycle amplitude
+                    A = 2.0 * (1 - 1/(8*mu_convergence))
+                    state = np.array([A, 0.0])
+                
+                perturbation = np.array([1e-8, 1e-8])
+                perturbation /= np.linalg.norm(perturbation)
+                
+                lyap_values = []
+                lyap_running_avg = []
+                
+                dt_vdp = 0.01
+                renorm_steps = int(1.0 / dt_vdp)
+                
+                # Skip transient
+                transient_steps = int(100 / dt_vdp)
+                for _ in range(transient_steps):
+                    x, y = state
+                    # Van der Pol: x'' - μ(1-x²)x' + x = 0
+                    # As system: x' = y, y' = μ(1-x²)y - x
+                    dx = y
+                    dy = mu_convergence * (1 - x**2) * y - x
+                    
+                    state[0] += dx * dt_vdp
+                    state[1] += dy * dt_vdp
+                
+                # Compute Lyapunov
+                lyap_sum = 0
+                n_renorm = 0
+                
+                for i in range(int(integration_time / dt_vdp)):
+                    # Current state
+                    x, y = state
+                    
+                    # Perturbed state
+                    perturbed = state + perturbation
+                    x_p, y_p = perturbed
+                    
+                    # Derivatives
+                    dx = y
+                    dy = mu_convergence * (1 - x**2) * y - x
+                    
+                    dx_p = y_p
+                    dy_p = mu_convergence * (1 - x_p**2) * y_p - x_p
+                    
+                    # Update states
+                    state[0] += dx * dt_vdp
+                    state[1] += dy * dt_vdp
+                    
+                    perturbed[0] += dx_p * dt_vdp
+                    perturbed[1] += dy_p * dt_vdp
+                    
+                    # Update perturbation
+                    perturbation = perturbed - state
+                    
+                    # Renormalize
+                    if (i + 1) % renorm_steps == 0:
+                        d = np.linalg.norm(perturbation)
+                        if d > 0:
+                            instant_lyap = np.log(d) / (renorm_steps * dt_vdp)
+                            lyap_sum += np.log(d)
+                            n_renorm += 1
+                            
+                            lyap_values.append(instant_lyap)
+                            lyap_running_avg.append(lyap_sum / (n_renorm * renorm_steps * dt_vdp))
+                            
+                            perturbation /= d
+                
+                # Create plot
+                fig = make_subplots(rows=2, cols=1, 
+                                subplot_titles=("Instantaneous Lyapunov Exponent", 
+                                                "Running Average"),
+                                vertical_spacing=0.1)
+                
+                fig.add_trace(go.Scatter(
+                    y=lyap_values,
+                    mode='lines',
+                    line=dict(color='lightblue', width=1),
+                    name='Instantaneous'
+                ), row=1, col=1)
+                
+                fig.add_trace(go.Scatter(
+                    y=lyap_running_avg,
+                    mode='lines',
+                    line=dict(color='blue', width=2),
+                    name='Running Average'
+                ), row=2, col=1)
+                
+                if len(lyap_running_avg) > 0:
+                    final_value = lyap_running_avg[-1]
+                    fig.add_hline(y=final_value, line_dash="dash", line_color="red", 
+                                row=2, col=1, opacity=0.5)
+                
+                fig.add_hline(y=0, line_dash="dot", line_color="gray", 
+                            row=2, col=1, opacity=0.3)
+                
+                fig.update_xaxes(title_text="Renormalization Step", row=2, col=1)
+                fig.update_yaxes(title_text="LLE", row=1, col=1)
+                fig.update_yaxes(title_text="Average LLE", row=2, col=1)
+                
+                fig.update_layout(
+                    title=f"Lyapunov Exponent Convergence (μ = {mu_convergence:.2f})",
+                    height=700,
+                    template="plotly_white",
+                    showlegend=False
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Note about Van der Pol
+                st.info("""
+                **Note:** The Van der Pol oscillator has a stable limit cycle for μ > 0, 
+                so the largest Lyapunov exponent should be ≤ 0. 
+                A value near 0 indicates you're on the limit cycle, 
+                while negative values indicate convergence to the cycle.
+                """)
+                
+                if len(lyap_running_avg) > 0:
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Final LLE", f"{final_value:.4f}")
+                    with col2:
+                        st.metric("System State", "Limit Cycle" if abs(final_value) < 0.1 else "Transient")
+                    with col3:
+                        if len(lyap_running_avg) > 100:
+                            st.metric("Convergence σ", f"{np.std(lyap_running_avg[-100:]):.6f}")
         
         elif viz_type == "Finite-Time Heatmap":
             # Create heatmap of finite-time Lyapunov exponents
