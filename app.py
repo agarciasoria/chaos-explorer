@@ -1452,11 +1452,684 @@ with tabs[1]:
             """
         )
 # ============================================
-# TAB 3..5 (placeholders)
+# TAB 3: BIFURCATION DIAGRAMS
 # ============================================
 with tabs[2]:
     st.header("Bifurcation Diagrams")
-    st.write("Coming soon...")
+    st.write("Explore how system behavior changes with parameters - the roadmap to chaos")
+    
+    # System selection
+    system = st.selectbox(
+        "Select System",
+        ["Logistic Map", "Lorenz System (ρ variation)", "Duffing Oscillator", "Van der Pol Oscillator", "Hénon Map"]
+    )
+    
+    # System-specific parameters
+    if system == "Logistic Map":
+        st.latex(r"x_{n+1} = r \cdot x_n \cdot (1 - x_n)")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            r_min = st.number_input("r min", value=2.5, step=0.1)
+            r_max = st.number_input("r max", value=4.0, step=0.1)
+        with col2:
+            r_points = st.slider("Parameter points", 100, 2000, 1000)
+            iterations = st.slider("Iterations per point", 100, 2000, 1000)
+        with col3:
+            last_points = st.slider("Points to plot", 10, 200, 100, help="Number of final points to show (after transient)")
+            x0_logistic = st.slider("Initial condition x₀", 0.01, 0.99, 0.5, 0.01)
+    
+    elif system == "Lorenz System (ρ variation)":
+        st.latex(r"\dot{x} = \sigma(y-x), \quad \dot{y} = x(\rho-z)-y, \quad \dot{z} = xy - \beta z")
+        st.write("Plotting local maxima of x as ρ varies")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            sigma_bif = st.slider("σ", 0.1, 20.0, 10.0, 0.1)
+            beta_bif = st.slider("β", 0.1, 10.0, 8/3, 0.1)
+        with col2:
+            rho_min = st.number_input("ρ min", value=20.0, step=1.0)
+            rho_max = st.number_input("ρ max", value=200.0, step=1.0)
+        with col3:
+            rho_points = st.slider("Parameter points", 100, 1000, 500)
+            t_transient = st.slider("Transient time", 10.0, 200.0, 100.0)
+            t_collect = st.slider("Collection time", 50.0, 500.0, 200.0)
+    
+    elif system == "Duffing Oscillator":
+        st.latex(r"\ddot{x} + \delta\dot{x} + \alpha x + \beta x^3 = \gamma \cos(\omega t)")
+        st.write("Poincaré section at phase ωt = 0")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            delta_duff = st.slider("δ (damping)", 0.0, 1.0, 0.3, 0.01)
+            alpha_duff = st.slider("α (linear stiffness)", -2.0, 2.0, -1.0, 0.1)
+            beta_duff = st.slider("β (nonlinear stiffness)", 0.0, 2.0, 1.0, 0.1)
+        with col2:
+            gamma_min = st.number_input("γ min (forcing)", value=0.1, step=0.1)
+            gamma_max = st.number_input("γ max (forcing)", value=0.5, step=0.1)
+            omega_duff = st.slider("ω (frequency)", 0.5, 2.0, 1.2, 0.1)
+        with col3:
+            gamma_points = st.slider("Parameter points", 100, 1000, 500)
+            periods_transient = st.slider("Transient periods", 50, 500, 200)
+            periods_collect = st.slider("Collection periods", 50, 200, 100)
+    
+    elif system == "Van der Pol Oscillator":
+        st.latex(r"\ddot{x} - \mu(1-x^2)\dot{x} + x = 0")
+        st.write("Plotting limit cycle amplitudes")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            mu_min = st.number_input("μ min", value=0.1, step=0.1)
+            mu_max = st.number_input("μ max", value=5.0, step=0.1)
+        with col2:
+            mu_points = st.slider("Parameter points", 100, 1000, 500)
+            t_transient_vdp = st.slider("Transient time", 10.0, 200.0, 100.0)
+            t_collect_vdp = st.slider("Collection time", 50.0, 200.0, 100.0)
+    
+    else:  # Hénon Map
+        st.latex(r"x_{n+1} = 1 - a x_n^2 + y_n, \quad y_{n+1} = b x_n")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            a_min = st.number_input("a min", value=1.0, step=0.1)
+            a_max = st.number_input("a max", value=1.4, step=0.1)
+            b_henon = st.slider("b", 0.1, 0.4, 0.3, 0.01)
+        with col2:
+            a_points = st.slider("Parameter points", 100, 2000, 1000)
+            iterations_henon = st.slider("Iterations per point", 100, 2000, 1000)
+        with col3:
+            last_points_henon = st.slider("Points to plot", 10, 200, 100)
+            x0_henon = st.slider("Initial x₀", -2.0, 2.0, 0.0, 0.1)
+            y0_henon = st.slider("Initial y₀", -2.0, 2.0, 0.0, 0.1)
+
+    # Visualization options
+    st.write("### Visualization Options")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        color_scheme = st.selectbox("Color scheme", ["Viridis", "Blues", "Plasma", "Inferno", "Twilight"])
+    with col2:
+        point_size = st.slider("Point size", 0.1, 5.0, 1.0, 0.1)
+    with col3:
+        show_theory = st.checkbox("Show bifurcation theory", value=True)
+
+    # Generate button
+    generate_bifurcation = st.button("🎨 Generate Bifurcation Diagram", type="primary")
+    
+    if generate_bifurcation:
+        with st.spinner("Computing bifurcation diagram..."):
+            
+            if system == "Logistic Map":
+                # Logistic map bifurcation
+                r_values = np.linspace(r_min, r_max, r_points)
+                bifurcation_data = []
+                
+                progress_bar = st.progress(0)
+                
+                for i, r in enumerate(r_values):
+                    x = x0_logistic
+                    # Transient iterations
+                    for _ in range(iterations - last_points):
+                        x = r * x * (1 - x)
+                    
+                    # Collect data
+                    r_data = []
+                    for _ in range(last_points):
+                        x = r * x * (1 - x)
+                        r_data.append((r, x))
+                    
+                    bifurcation_data.extend(r_data)
+                    
+                    if i % (r_points // 20) == 0:
+                        progress_bar.progress(i / r_points)
+                
+                progress_bar.empty()
+                
+                # Create plot
+                fig = go.Figure()
+                r_vals, x_vals = zip(*bifurcation_data)
+                fig.add_trace(go.Scattergl(
+                    x=r_vals,
+                    y=x_vals,
+                    mode='markers',
+                    marker=dict(
+                        size=point_size,
+                        color=x_vals,
+                        colorscale=color_scheme.lower(),
+                        showscale=False,
+                        opacity=0.6
+                    ),
+                    name='Bifurcation'
+                ))
+                
+                fig.update_layout(
+                    title="Logistic Map Bifurcation Diagram",
+                    xaxis_title="r",
+                    yaxis_title="x",
+                    height=600,
+                    template="plotly_white"
+                )
+                
+                # Add annotations for key bifurcations
+                if show_theory:
+                    fig.add_vline(x=3.0, line_dash="dash", line_color="red", opacity=0.5)
+                    fig.add_annotation(x=3.0, y=0.9, text="Period-2", showarrow=False, textangle=-90)
+                    fig.add_vline(x=1+np.sqrt(6), line_dash="dash", line_color="red", opacity=0.5)
+                    fig.add_annotation(x=1+np.sqrt(6), y=0.9, text="Period-4", showarrow=False, textangle=-90)
+                    fig.add_vline(x=3.57, line_dash="dash", line_color="red", opacity=0.5)
+                    fig.add_annotation(x=3.57, y=0.9, text="Chaos", showarrow=False, textangle=-90)
+                
+                st.plotly_chart(fig, use_container_width=True)
+                st.session_state.bifurcation_data = bifurcation_data
+                st.session_state.bifurcation_type = system
+            
+            elif system == "Lorenz System (ρ variation)":
+                # Lorenz maxima bifurcation
+                rho_values = np.linspace(rho_min, rho_max, rho_points)
+                bifurcation_data = []
+                
+                progress_bar = st.progress(0)
+                
+                for i, rho in enumerate(rho_values):
+                    # Integrate transient
+                    t_span = [0, t_transient + t_collect]
+                    t_eval = np.linspace(t_transient, t_transient + t_collect, int(t_collect * 100))
+                    
+                    sol = solve_ivp(
+                        lorenz_system,
+                        t_span,
+                        [1.0, 1.0, 1.0],  # Standard initial condition
+                        t_eval=t_eval,
+                        args=(sigma_bif, rho, beta_bif),
+                        rtol=1e-8
+                    )
+                    
+                    # Find local maxima of x
+                    x_data = sol.y[0]
+                    maxima_indices = np.where((x_data[1:-1] > x_data[:-2]) & (x_data[1:-1] > x_data[2:]))[0] + 1
+                    
+                    if len(maxima_indices) > 0:
+                        for max_val in x_data[maxima_indices[-min(50, len(maxima_indices)):]]:
+                            bifurcation_data.append((rho, max_val))
+                    
+                    if i % (rho_points // 20) == 0:
+                        progress_bar.progress(i / rho_points)
+                
+                progress_bar.empty()
+                
+                # Create plot
+                fig = go.Figure()
+                if bifurcation_data:
+                    rho_vals, x_max_vals = zip(*bifurcation_data)
+                    fig.add_trace(go.Scattergl(
+                        x=rho_vals,
+                        y=x_max_vals,
+                        mode='markers',
+                        marker=dict(
+                            size=point_size,
+                            color=x_max_vals,
+                            colorscale=color_scheme.lower(),
+                            showscale=False,
+                            opacity=0.6
+                        ),
+                        name='Maxima'
+                    ))
+                
+                fig.update_layout(
+                    title="Lorenz System Bifurcation (Local Maxima of x)",
+                    xaxis_title="ρ",
+                    yaxis_title="x maxima",
+                    height=600,
+                    template="plotly_white"
+                )
+                                # Add annotations for key transitions
+                if show_theory:
+                    fig.add_vline(x=24.74, line_dash="dash", line_color="red", opacity=0.5)
+                    fig.add_annotation(x=24.74, y=0, text="Hopf bifurcation", showarrow=False, textangle=-90, yref="paper", y=0.95)
+                    fig.add_vline(x=99.65, line_dash="dash", line_color="blue", opacity=0.5)
+                    fig.add_annotation(x=99.65, y=0, text="Periodic window", showarrow=False, textangle=-90, yref="paper", y=0.95)
+                
+                st.plotly_chart(fig, use_container_width=True)
+                st.session_state.bifurcation_data = bifurcation_data
+                st.session_state.bifurcation_type = system
+            
+            elif system == "Duffing Oscillator":
+                # Duffing Poincaré section bifurcation
+                gamma_values = np.linspace(gamma_min, gamma_max, gamma_points)
+                bifurcation_data = []
+                
+                progress_bar = st.progress(0)
+                
+                def duffing_system(t, state, delta, alpha, beta, gamma, omega):
+                    x, v = state
+                    dxdt = v
+                    dvdt = -delta*v - alpha*x - beta*x**3 + gamma*np.cos(omega*t)
+                    return [dxdt, dvdt]
+                
+                for i, gamma in enumerate(gamma_values):
+                    # Integration parameters
+                    period = 2 * np.pi / omega_duff
+                    t_span = [0, (periods_transient + periods_collect) * period]
+                    
+                    # Poincaré sampling times (phase = 0)
+                    sample_times = np.arange(periods_transient, periods_transient + periods_collect) * period
+                    
+                    sol = solve_ivp(
+                        duffing_system,
+                        t_span,
+                        [0.1, 0.0],  # Initial conditions
+                        t_eval=sample_times,
+                        args=(delta_duff, alpha_duff, beta_duff, gamma, omega_duff),
+                        rtol=1e-8
+                    )
+                    
+                    # Collect Poincaré points
+                    for j in range(len(sol.t)):
+                        bifurcation_data.append((gamma, sol.y[0, j]))
+                    
+                    if i % (gamma_points // 20) == 0:
+                        progress_bar.progress(i / gamma_points)
+                
+                progress_bar.empty()
+                
+                # Create plot
+                fig = go.Figure()
+                if bifurcation_data:
+                    gamma_vals, x_vals = zip(*bifurcation_data)
+                    fig.add_trace(go.Scattergl(
+                        x=gamma_vals,
+                        y=x_vals,
+                        mode='markers',
+                        marker=dict(
+                            size=point_size,
+                            color=x_vals,
+                            colorscale=color_scheme.lower(),
+                            showscale=False,
+                            opacity=0.6
+                        ),
+                        name='Poincaré section'
+                    ))
+                
+                fig.update_layout(
+                    title="Duffing Oscillator Bifurcation (Poincaré Section)",
+                    xaxis_title="γ (forcing amplitude)",
+                    yaxis_title="x (displacement)",
+                    height=600,
+                    template="plotly_white"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                st.session_state.bifurcation_data = bifurcation_data
+                st.session_state.bifurcation_type = system
+            
+            elif system == "Van der Pol Oscillator":
+                # Van der Pol limit cycle amplitude bifurcation
+                mu_values = np.linspace(mu_min, mu_max, mu_points)
+                bifurcation_data = []
+                
+                progress_bar = st.progress(0)
+                
+                def vanderpol_system(t, state, mu):
+                    x, v = state
+                    dxdt = v
+                    dvdt = mu * (1 - x**2) * v - x
+                    return [dxdt, dvdt]
+                
+                for i, mu in enumerate(mu_values):
+                    # Integrate with transient
+                    t_span = [0, t_transient_vdp + t_collect_vdp]
+                    t_eval = np.linspace(t_transient_vdp, t_transient_vdp + t_collect_vdp, 1000)
+                    
+                    sol = solve_ivp(
+                        vanderpol_system,
+                        t_span,
+                        [2.0, 0.0],  # Initial conditions
+                        t_eval=t_eval,
+                        args=(mu,),
+                        rtol=1e-8
+                    )
+                    
+                    # Find extrema of x (amplitude of limit cycle)
+                    x_data = sol.y[0]
+                    maxima_indices = np.where((x_data[1:-1] > x_data[:-2]) & (x_data[1:-1] > x_data[2:]))[0] + 1
+                    minima_indices = np.where((x_data[1:-1] < x_data[:-2]) & (x_data[1:-1] < x_data[2:]))[0] + 1
+                    
+                    # Collect last few extrema
+                    if len(maxima_indices) > 0:
+                        for max_val in x_data[maxima_indices[-min(10, len(maxima_indices)):]]:
+                            bifurcation_data.append((mu, max_val))
+                    if len(minima_indices) > 0:
+                        for min_val in x_data[minima_indices[-min(10, len(minima_indices)):]]:
+                            bifurcation_data.append((mu, min_val))
+                    
+                    if i % (mu_points // 20) == 0:
+                        progress_bar.progress(i / mu_points)
+                
+                progress_bar.empty()
+                
+                # Create plot
+                fig = go.Figure()
+                if bifurcation_data:
+                    mu_vals, x_extrema = zip(*bifurcation_data)
+                    fig.add_trace(go.Scattergl(
+                        x=mu_vals,
+                        y=x_extrema,
+                        mode='markers',
+                        marker=dict(
+                            size=point_size,
+                            color=x_extrema,
+                            colorscale=color_scheme.lower(),
+                            showscale=False,
+                            opacity=0.6
+                        ),
+                        name='Limit cycle extrema'
+                    ))
+                
+                fig.update_layout(
+                    title="Van der Pol Oscillator Bifurcation (Limit Cycle Amplitude)",
+                    xaxis_title="μ (nonlinearity parameter)",
+                    yaxis_title="x extrema",
+                    height=600,
+                    template="plotly_white"
+                )
+                
+                # Add theoretical curve for large μ
+                if show_theory:
+                    mu_theory = np.linspace(max(1, mu_min), mu_max, 100)
+                    amplitude_theory = 2 * np.ones_like(mu_theory)  # Approximate amplitude for large μ
+                    fig.add_trace(go.Scatter(
+                        x=mu_theory,
+                        y=amplitude_theory,
+                        mode='lines',
+                        line=dict(color='red', dash='dash'),
+                        name='Theoretical amplitude ≈ 2'
+                    ))
+                
+                st.plotly_chart(fig, use_container_width=True)
+                st.session_state.bifurcation_data = bifurcation_data
+                st.session_state.bifurcation_type = system
+            
+            else:  # Hénon Map
+                # Hénon map bifurcation
+                a_values = np.linspace(a_min, a_max, a_points)
+                bifurcation_data = []
+                
+                progress_bar = st.progress(0)
+                
+                for i, a in enumerate(a_values):
+                    x, y = x0_henon, y0_henon
+                    
+                    # Transient iterations
+                    for _ in range(iterations_henon - last_points_henon):
+                        x_new = 1 - a * x**2 + y
+                        y_new = b_henon * x
+                        x, y = x_new, y_new
+                    
+                    # Collect data
+                    for _ in range(last_points_henon):
+                        x_new = 1 - a * x**2 + y
+                        y_new = b_henon * x
+                        x, y = x_new, y_new
+                        bifurcation_data.append((a, x))
+                    
+                    if i % (a_points // 20) == 0:
+                        progress_bar.progress(i / a_points)
+                
+                progress_bar.empty()
+                
+                # Create plot
+                fig = go.Figure()
+                a_vals, x_vals = zip(*bifurcation_data)
+                fig.add_trace(go.Scattergl(
+                    x=a_vals,
+                    y=x_vals,
+                    mode='markers',
+                    marker=dict(
+                        size=point_size,
+                        color=x_vals,
+                        colorscale=color_scheme.lower(),
+                        showscale=False,
+                        opacity=0.6
+                    ),
+                    name='Bifurcation'
+                ))
+                
+                fig.update_layout(
+                    title="Hénon Map Bifurcation Diagram",
+                    xaxis_title="a",
+                    yaxis_title="x",
+                    height=600,
+                    template="plotly_white"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                st.session_state.bifurcation_data = bifurcation_data
+                st.session_state.bifurcation_type = system
+
+    # Show existing bifurcation diagram if available
+    elif 'bifurcation_data' in st.session_state and st.session_state.bifurcation_data is not None:
+        bifurcation_data = st.session_state.bifurcation_data
+        system = st.session_state.bifurcation_type
+        
+        fig = go.Figure()
+        param_vals, state_vals = zip(*bifurcation_data)
+        fig.add_trace(go.Scattergl(
+            x=param_vals,
+            y=state_vals,
+            mode='markers',
+            marker=dict(
+                size=point_size,
+                color=state_vals,
+                colorscale=color_scheme.lower(),
+                showscale=False,
+                opacity=0.6
+            ),
+            name='Bifurcation'
+        ))
+        
+        fig.update_layout(
+            title=f"{system} Bifurcation Diagram",
+            xaxis_title="Parameter",
+            yaxis_title="State variable",
+            height=600,
+            template="plotly_white"
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Metrics
+    if 'bifurcation_data' in st.session_state and st.session_state.bifurcation_data:
+        st.write("---")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total points", f"{len(st.session_state.bifurcation_data):,}")
+        with col2:
+            param_vals, state_vals = zip(*st.session_state.bifurcation_data)
+            st.metric("Parameter range", f"[{min(param_vals):.3f}, {max(param_vals):.3f}]")
+        with col3:
+            st.metric("State range", f"[{min(state_vals):.3f}, {max(state_vals):.3f}]")
+
+    # Downloads
+    if 'bifurcation_data' in st.session_state and st.session_state.bifurcation_data:
+        st.write("### 📥 Download Options")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # CSV download
+            csv_lines = ["parameter,value"]
+            for param, value in st.session_state.bifurcation_data:
+                csv_lines.append(f"{param:.8f},{value:.8f}")
+            csv_data = "\n".join(csv_lines)
+            
+            st.download_button(
+                label="📊 Download Data (CSV)",
+                data=csv_data,
+                file_name=f"bifurcation_{st.session_state.bifurcation_type.lower().replace(' ', '_')}.csv",
+                mime="text/csv",
+                key="bif_csv_download"
+            )
+        
+        with col2:
+            # Create figure for HTML download
+            fig_download = go.Figure()
+            param_vals, state_vals = zip(*st.session_state.bifurcation_data)
+            fig_download.add_trace(go.Scattergl(
+                x=param_vals,
+                y=state_vals,
+                mode='markers',
+                marker=dict(size=1, opacity=0.6),
+                name='Bifurcation'
+            ))
+            
+            html_buf = io.StringIO()
+            fig_download.write_html(html_buf, include_plotlyjs="cdn")
+            st.download_button(
+                label="🌐 Interactive HTML",
+                data=html_buf.getvalue().encode(),
+                file_name=f"bifurcation_{st.session_state.bifurcation_type.lower().replace(' ', '_')}.html",
+                mime="text/html",
+                key="bif_html_download"
+            )
+
+        # Theory section
+    with st.expander("📚 Learn More — Bifurcation Theory and Routes to Chaos"):
+        st.markdown(
+            r"""
+            ### 🌉 The Architecture of Chaos
+            
+            Bifurcation diagrams are the roadmaps of nonlinear dynamics. They reveal how a system's behavior changes as we vary 
+            a control parameter, exposing the hidden architecture of chaos. Like a genealogy of dynamical behaviors, these diagrams 
+            show how simple periodic motion can give birth to complex chaos through a cascade of qualitative changes.
+            
+            ### 🔀 What is a Bifurcation?
+            
+            A bifurcation occurs when a small change in a system's parameter causes a qualitative change in its behavior. Imagine 
+            slowly turning up the heat under a pot of water—at 100°C, the behavior suddenly changes from calm liquid to violent 
+            boiling. That's a bifurcation: a tipping point where the system's fundamental character transforms.
+            
+            In dynamical systems, bifurcations mark transitions between:
+            - Fixed points and periodic orbits
+            - Stable and unstable behaviors
+            - Order and chaos
+            
+            ### 🎭 The Main Characters: Types of Bifurcations
+            
+            **1. Saddle-Node (Fold) Bifurcation**
+            - Two fixed points collide and annihilate
+            - Creates or destroys equilibria
+            - Example: The sudden collapse of ecosystems
+            
+            **2. Period-Doubling (Flip) Bifurcation**
+            - A periodic orbit becomes unstable and splits into a orbit with twice the period
+            - The hallmark of the Feigenbaum route to chaos
+            - Visible in the logistic map as the cascade of period-2, 4, 8, 16...
+            
+            **3. Hopf Bifurcation**
+            - A fixed point loses stability and births a limit cycle
+            - Transforms equilibrium into oscillation
+            - Seen in the Lorenz system at ρ ≈ 24.74
+            
+            **4. Pitchfork Bifurcation**
+            - One fixed point becomes three (supercritical) or vice versa
+            - Common in symmetric systems
+            - The Lorenz system exhibits this at ρ = 1
+            
+            ### 🗺️ Understanding Each System
+            
+            **Logistic Map: The Period-Doubling Route**
+            
+            The logistic map $x_{n+1} = rx_n(1-x_n)$ is the fruit fly of chaos theory—simple yet profound. As you increase $r$:
+            - $r < 1$: Population dies out (extinction)
+            - $1 < r < 3$: Stable fixed point (sustainable population)
+            - $3 < r < 1+\sqrt{6}$: Period-2 cycle (population oscillates between two values)
+            - Further increases: Period-4, 8, 16... (period-doubling cascade)
+            - $r \approx 3.57$: Chaos onset
+            - $r > 3.57$: Chaotic behavior interspersed with periodic windows
+            
+            The period-doubling intervals follow Feigenbaum's constant: $\delta = 4.669...$, a universal number like π or e!
+            
+            **Lorenz System: Intermittency and Crisis**
+            
+            Varying ρ in the Lorenz system reveals a different route to chaos:
+            - Small ρ: All trajectories spiral to origin
+            - ρ = 1: Pitchfork bifurcation creates two new fixed points
+            - ρ ≈ 24.74: Hopf bifurcation births strange attractor
+            - Large ρ: Periodic windows appear within chaos (e.g., ρ ≈ 99.65)
+            
+            The maxima plot shows how the attractor's structure changes—notice the sudden expansions (crises) and 
+            collapses into periodic behavior.
+            
+            **Duffing Oscillator: Forced Transitions**
+            
+            This driven system shows how external forcing can induce chaos:
+            - Small γ: Simple periodic response
+            - Increasing γ: Period-doubling route to chaos
+            - Large γ: Multiple coexisting attractors (multistability)
+            
+            The Poincaré section cuts through the continuous flow, revealing the discrete map hidden within.
+            
+            **Van der Pol Oscillator: Relaxation to Chaos**
+            
+            As μ increases:
+            - μ ≈ 0: Nearly harmonic oscillation (circle in phase space)
+            - μ > 0: Limit cycle emerges via Hopf bifurcation
+            - Large μ: Relaxation oscillations (fast-slow dynamics)
+            
+            The amplitude approaches 2 for large μ, independent of initial conditions—a robust limit cycle.
+            
+            **Hénon Map: Strange Attractor Formation**
+            
+            This 2D map exhibits:
+            - Period-doubling cascade similar to logistic map
+            - Formation of a fractal strange attractor
+            - Sensitive dependence on initial conditions
+            
+            ### 🔬 Universal Features
+            
+            Remarkably, different systems share universal properties near bifurcations:
+            
+            1. **Feigenbaum Constants**: Period-doubling cascades in different systems converge at the same rate
+            2. **Normal Forms**: Near bifurcations, complex systems reduce to simple universal equations
+            3. **Scaling Laws**: Power laws govern behavior near critical transitions
+            
+            ### 🌍 Real-World Implications
+            
+            Bifurcation theory illuminates critical transitions in:
+            - **Climate**: Tipping points in Earth's climate system
+            - **Ecology**: Sudden ecosystem collapses and regime shifts
+            - **Economics**: Market crashes and bubble formations
+            - **Neuroscience**: Epileptic seizures as bifurcations in brain dynamics
+            - **Engineering**: Flutter in aircraft wings, buckling in structures
+            
+            ### 🎮 Exploration Guide
+            
+            1. **Find the Cascade**: In the logistic map, zoom into the region 2.8 < r < 3.6 to see the period-doubling cascade 
+               in exquisite detail. Can you spot the self-similar structure?
+            
+            2. **Hunt for Windows**: In the chaotic region (r > 3.57), look for vertical white stripes—these are periodic 
+               windows. The largest occurs at r ≈ 3.83 (period-3).
+            
+            3. **Parameter Sensitivity**: Make tiny changes to parameters near bifurcation points. Notice how behavior changes 
+               dramatically—this sensitivity is why weather prediction is fundamentally limited.
+            
+            4. **Coexisting Attractors**: In the Duffing system, different initial conditions can lead to different attractors 
+               at the same parameter value. This multistability is crucial in many applications.
+            
+            5. **Transient Chaos**: Some parameter values show chaotic behavior that eventually settles to periodic motion. 
+               Increase the transient time to ensure you're seeing the true long-term behavior.
+            
+            ### 📊 Reading Bifurcation Diagrams
+            
+            - **Vertical slices**: All possible long-term behaviors at that parameter value
+            - **Continuous curves**: Stable periodic behavior
+            - **Fuzzy regions**: Chaotic behavior (many possible values)
+            - **White space**: Unstable or transient behaviors not captured
+            - **Sudden jumps**: Bifurcation points where behavior changes qualitatively
+            
+            Remember: these diagrams compress infinite-time behavior into a single image. Each point represents where the system 
+            settles after transients die out—the mathematical equivalent of patience rewarded with insight.
+            """
+        )
 
 with tabs[3]:
     st.header("Lyapunov Exponents")
