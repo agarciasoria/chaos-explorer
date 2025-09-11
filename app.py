@@ -2133,20 +2133,17 @@ with tabs[2]:
                 fig.add_annotation(x=99.65, y=0.95, text="Periodic window", showarrow=False, textangle=-90, yref="paper")
             
             elif system == "Duffing Oscillator":
-                # Add parameter info
-                param_text = "Duffing Oscillator Parameters"
-                fig.add_annotation(
-                    x=0.5, y=0.02, 
-                    text=param_text,
-                    xref="paper", yref="paper", 
-                    showarrow=False,
-                    bgcolor="rgba(255,255,255,0.8)", 
-                    font=dict(size=10)
-                )
+                param_min = min(param_vals)
+                param_max = max(param_vals)
+                param_range = param_max - param_min
                 
-                # Early region - usually stable
+                # Adaptive annotations based on typical Duffing behavior
+                # These percentages are approximate for typical Duffing systems
+                
+                # Stable region (typically first 40-50% of range before chaos)
+                stable_point = param_min + 0.3 * param_range
                 fig.add_annotation(
-                    x=0.15, y=0.9,
+                    x=stable_point, y=0.9,
                     text="Stable periodic",
                     showarrow=True, 
                     arrowhead=2,
@@ -2154,35 +2151,35 @@ with tabs[2]:
                     bgcolor="rgba(255,255,255,0.8)"
                 )
                 
-                # Bifurcation region
-                fig.add_vline(x=0.28, line_dash="dash", line_color="orange", opacity=0.5)
+                # Bifurcations (typically around 50-60% through range)
+                bifurc_point = param_min + 0.55 * param_range
+                fig.add_vline(x=bifurc_point, line_dash="dash", line_color="orange", opacity=0.5)
                 fig.add_annotation(
-                    x=0.28, y=0.5,
-                    text="Bifurcation cascade",
+                    x=bifurc_point, y=0.5,
+                    text="Bifurcations",
                     showarrow=False,
                     textangle=-90,
                     yref="paper",
                     bgcolor="rgba(255,255,255,0.8)"
                 )
                 
-                # Chaotic region
+                # Chaos (typically around 60-70% through range)
+                chaos_point = param_min + 0.65 * param_range
                 fig.add_annotation(
-                    x=0.35, y=0.1,
-                    text="Chaotic dynamics",
+                    x=chaos_point, y=0.1,
+                    text="Chaos",
                     showarrow=True,
                     arrowhead=2,
-                    ax=30, ay=30,
+                    ax=20, ay=20,
                     bgcolor="rgba(255,255,255,0.8)"
                 )
                 
-                # Period-3 window
-                fig.add_vline(x=0.365, line_dash="dash", line_color="blue", opacity=0.5)
+                # Note about parameter dependence
                 fig.add_annotation(
-                    x=0.365, y=0.95,
-                    text="Period-3",
-                    showarrow=False,
-                    yref="paper",
-                    bgcolor="rgba(255,255,255,0.8)"
+                    x=0.98, y=0.02, xref="paper", yref="paper",
+                    text=f"γ ∈ [{param_min:.2f}, {param_max:.2f}]",
+                    showarrow=False, font=dict(size=9),
+                    bgcolor="rgba(255,255,200,0.8)"
                 )
             
             elif system == "Van der Pol Oscillator":
