@@ -2445,9 +2445,842 @@ with tabs[2]:
             """
         )
 
-with tabs[3]:
-    st.header("Lyapunov Exponents")
-    st.write("Coming soon...")
+with tabs[3]:  # Lyapunov Exponents tab
+    st.header("Lyapunov Exponents Analysis")
+    st.write("Explore how sensitive dynamical systems are to initial conditions through Lyapunov exponents.")
+    
+    # Create columns for controls
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        system = st.selectbox(
+            "Select System",
+            ["Logistic Map", "Lorenz System", "Duffing Oscillator", "Van der Pol Oscillator", "Hénon Map"],
+            key="lyapunov_system"
+        )
+    
+    with col2:
+        viz_type = st.selectbox(
+            "Visualization Type",
+            ["LLE vs Parameter", "Convergence Plot", "Finite-Time Heatmap", "Spectrum Analysis"],
+            key="lyapunov_viz"
+        )
+    
+    with col3:
+        color_scheme = st.selectbox(
+            "Color Scheme",
+            ["Viridis", "Plasma", "Turbo", "RdBu", "Coolwarm"],
+            key="lyapunov_colors"
+        )
+    
+    # System-specific parameters
+    st.markdown("---")
+    st.subheader("Parameters")
+    
+    if system == "Logistic Map":
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            r_min = st.number_input("r min", value=2.5, min_value=0.0, max_value=4.0, step=0.1)
+        with col2:
+            r_max = st.number_input("r max", value=4.0, min_value=0.0, max_value=4.0, step=0.1)
+        with col3:
+            n_params = st.number_input("Parameter points", value=200, min_value=50, max_value=1000, step=50)
+        with col4:
+            iterations = st.number_input("Iterations", value=1000, min_value=100, max_value=10000, step=100)
+    
+    elif system == "Lorenz System":
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            sigma = st.number_input("σ", value=10.0, min_value=0.1, max_value=50.0, step=0.5)
+        with col2:
+            beta = st.number_input("β", value=8/3, min_value=0.1, max_value=10.0, step=0.1)
+        with col3:
+            rho_min = st.number_input("ρ min", value=0.0, min_value=0.0, max_value=200.0, step=1.0)
+        with col4:
+            rho_max = st.number_input("ρ max", value=50.0, min_value=0.0, max_value=200.0, step=1.0)
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            n_params = st.number_input("Parameter points", value=100, min_value=20, max_value=500, step=20)
+        with col2:
+            integration_time = st.number_input("Integration time", value=100.0, min_value=10.0, max_value=1000.0, step=10.0)
+        with col3:
+            dt = st.number_input("dt", value=0.01, min_value=0.001, max_value=0.1, step=0.001, format="%.3f")
+        with col4:
+            renorm_interval = st.number_input("Renorm interval", value=1.0, min_value=0.01, max_value=10.0, step=0.1)
+    
+    elif system == "Duffing Oscillator":
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            delta = st.number_input("δ (damping)", value=0.2, min_value=0.0, max_value=1.0, step=0.05)
+        with col2:
+            alpha = st.number_input("α", value=1.0, min_value=-2.0, max_value=2.0, step=0.1)
+        with col3:
+            beta_duff = st.number_input("β", value=1.0, min_value=-2.0, max_value=2.0, step=0.1)
+        with col4:
+            omega = st.number_input("ω", value=1.0, min_value=0.1, max_value=5.0, step=0.1)
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            gamma_min = st.number_input("γ min", value=0.0, min_value=0.0, max_value=2.0, step=0.05)
+        with col2:
+            gamma_max = st.number_input("γ max", value=0.5, min_value=0.0, max_value=2.0, step=0.05)
+        with col3:
+            n_params = st.number_input("Parameter points", value=100, min_value=20, max_value=500, step=20)
+        with col4:
+            integration_time = st.number_input("Integration time", value=200.0, min_value=50.0, max_value=1000.0, step=50.0)
+    
+    elif system == "Van der Pol Oscillator":
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            mu_min = st.number_input("μ min", value=0.0, min_value=0.0, max_value=10.0, step=0.1)
+        with col2:
+            mu_max = st.number_input("μ max", value=5.0, min_value=0.0, max_value=10.0, step=0.1)
+        with col3:
+            n_params = st.number_input("Parameter points", value=100, min_value=20, max_value=500, step=20)
+        with col4:
+            integration_time = st.number_input("Integration time", value=200.0, min_value=50.0, max_value=1000.0, step=50.0)
+    
+    else:  # Hénon Map
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            a_min = st.number_input("a min", value=1.0, min_value=0.0, max_value=2.0, step=0.05)
+        with col2:
+            a_max = st.number_input("a max", value=1.4, min_value=0.0, max_value=2.0, step=0.05)
+        with col3:
+            b_henon = st.number_input("b", value=0.3, min_value=0.0, max_value=1.0, step=0.05)
+        with col4:
+            n_params = st.number_input("Parameter points", value=200, min_value=50, max_value=1000, step=50)
+        
+        iterations = st.number_input("Iterations", value=5000, min_value=1000, max_value=50000, step=1000)
+    
+    # Advanced settings expander
+    with st.expander("Advanced Settings"):
+        col1, col2 = st.columns(2)
+        with col1:
+            discard_transient = st.slider("Discard transient (%)", 0, 50, 20)
+            show_convergence = st.checkbox("Show convergence analysis", value=True)
+        with col2:
+            multiple_runs = st.number_input("Ensemble runs", value=1, min_value=1, max_value=10)
+            show_theory = st.checkbox("Show theoretical predictions", value=True)
+    
+    # Compute button
+    if st.button("Compute Lyapunov Exponents", type="primary", use_container_width=True):
+        
+        if viz_type == "LLE vs Parameter":
+            # Compute Largest Lyapunov Exponent vs parameter
+            if system == "Logistic Map":
+                r_values = np.linspace(r_min, r_max, n_params)
+                lyapunov_values = []
+                
+                progress_bar = st.progress(0)
+                
+                for i, r in enumerate(r_values):
+                    # Analytical formula for logistic map
+                    x = 0.5
+                    lyap_sum = 0
+                    
+                    # Skip transient
+                    for _ in range(int(iterations * discard_transient / 100)):
+                        x = r * x * (1 - x)
+                    
+                    # Compute Lyapunov exponent
+                    for _ in range(iterations):
+                        x = r * x * (1 - x)
+                        if 0 < x < 1:
+                            lyap_sum += np.log(abs(r * (1 - 2*x)))
+                    
+                    lyapunov_values.append(lyap_sum / iterations)
+                    progress_bar.progress((i + 1) / n_params)
+                
+                progress_bar.empty()
+                
+                # Create plot
+                fig = go.Figure()
+                
+                # Add Lyapunov exponent trace
+                fig.add_trace(go.Scatter(
+                    x=r_values,
+                    y=lyapunov_values,
+                    mode='lines',
+                    line=dict(color='blue', width=2),
+                    name='Largest Lyapunov Exponent'
+                ))
+                
+                # Add zero line
+                fig.add_hline(y=0, line_dash="dash", line_color="red", opacity=0.5)
+                
+                # Color regions
+                fig.add_hrect(y0=0, y1=max(lyapunov_values) + 0.5, 
+                             fillcolor="red", opacity=0.1, 
+                             annotation_text="Chaotic", annotation_position="top right")
+                fig.add_hrect(y0=min(lyapunov_values) - 0.5, y1=0, 
+                             fillcolor="green", opacity=0.1, 
+                             annotation_text="Stable", annotation_position="bottom right")
+                
+                if show_theory:
+                    # Add bifurcation points
+                    fig.add_vline(x=3.0, line_dash="dash", line_color="orange", opacity=0.5)
+                    fig.add_annotation(x=3.0, y=max(lyapunov_values)*0.8, text="Period-2", textangle=-90)
+                    
+                    fig.add_vline(x=1+np.sqrt(6), line_dash="dash", line_color="orange", opacity=0.5)
+                    fig.add_annotation(x=1+np.sqrt(6), y=max(lyapunov_values)*0.8, text="Period-4", textangle=-90)
+                    
+                    fig.add_vline(x=3.57, line_dash="dash", line_color="purple", opacity=0.5)
+                    fig.add_annotation(x=3.57, y=max(lyapunov_values)*0.8, text="Chaos onset", textangle=-90)
+                
+                fig.update_layout(
+                    title="Largest Lyapunov Exponent vs Parameter (Logistic Map)",
+                    xaxis_title="r",
+                    yaxis_title="Largest Lyapunov Exponent",
+                    height=600,
+                    template="plotly_white"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Show statistics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Max LLE", f"{max(lyapunov_values):.4f}")
+                with col2:
+                    chaotic_fraction = sum(1 for l in lyapunov_values if l > 0) / len(lyapunov_values)
+                    st.metric("Chaotic fraction", f"{chaotic_fraction:.1%}")
+                with col3:
+                    st.metric("Min LLE", f"{min(lyapunov_values):.4f}")
+            
+            elif system == "Lorenz System":
+                rho_values = np.linspace(rho_min, rho_max, n_params)
+                lyapunov_values = []
+                
+                progress_bar = st.progress(0)
+                
+                for i, rho in enumerate(rho_values):
+                    # Compute Lyapunov exponent for Lorenz system
+                    # Initial conditions
+                    state = np.array([1.0, 1.0, 1.0])
+                    perturbation = np.array([1e-8, 0, 0])
+                    perturbation /= np.linalg.norm(perturbation)
+                    
+                    lyap_sum = 0
+                    t = 0
+                    n_renorm = 0
+                    
+                    # Skip transient
+                    transient_steps = int(integration_time * discard_transient / 100 / dt)
+                    for _ in range(transient_steps):
+                        k1 = sigma * (state[1] - state[0])
+                        k2 = state[0] * (rho - state[2]) - state[1]
+                        k3 = state[0] * state[1] - beta * state[2]
+                        state += dt * np.array([k1, k2, k3])
+                    
+                    # Compute Lyapunov
+                    while t < integration_time:
+                        # Evolve both trajectories
+                        perturbed = state + perturbation
+                        
+                        # RK4 for main trajectory
+                        k1 = np.array([sigma * (state[1] - state[0]),
+                                      state[0] * (rho - state[2]) - state[1],
+                                      state[0] * state[1] - beta * state[2]])
+                        k2_state = state + 0.5 * dt * k1
+                        k2 = np.array([sigma * (k2_state[1] - k2_state[0]),
+                                      k2_state[0] * (rho - k2_state[2]) - k2_state[1],
+                                      k2_state[0] * k2_state[1] - beta * k2_state[2]])
+                        state += dt * k2
+                        
+                        # Same for perturbed
+                        k1p = np.array([sigma * (perturbed[1] - perturbed[0]),
+                                       perturbed[0] * perturbed[1] - beta * perturbed[2]])
+                        k2_perturbed = perturbed + 0.5 * dt * k1p
+                        k2p = np.array([sigma * (k2_perturbed[1] - k2_perturbed[0]),
+                                       k2_perturbed[0] * (rho - k2_perturbed[2]) - k2_perturbed[1],
+                                       k2_perturbed[0] * k2_perturbed[1] - beta * k2_perturbed[2]])
+                        perturbed += dt * k2p
+                        
+                        # Update perturbation vector
+                        perturbation = perturbed - state
+                        
+                        # Renormalization
+                        if (n_renorm + 1) * renorm_interval < t:
+                            d = np.linalg.norm(perturbation)
+                            if d > 0:
+                                lyap_sum += np.log(d)
+                                perturbation /= d
+                                n_renorm += 1
+                        
+                        t += dt
+                    
+                    if n_renorm > 0:
+                        lyapunov_values.append(lyap_sum / (n_renorm * renorm_interval))
+                    else:
+                        lyapunov_values.append(0.0)
+                    
+                    progress_bar.progress((i + 1) / n_params)
+                
+                progress_bar.empty()
+                
+                # Create plot
+                fig = go.Figure()
+                
+                fig.add_trace(go.Scatter(
+                    x=rho_values,
+                    y=lyapunov_values,
+                    mode='lines',
+                    line=dict(color='blue', width=2),
+                    name='Largest Lyapunov Exponent'
+                ))
+                
+                fig.add_hline(y=0, line_dash="dash", line_color="red", opacity=0.5)
+                
+                # Color regions
+                if max(lyapunov_values) > 0:
+                    fig.add_hrect(y0=0, y1=max(lyapunov_values) * 1.1, 
+                                 fillcolor="red", opacity=0.1, 
+                                 annotation_text="Chaotic", annotation_position="top right")
+                if min(lyapunov_values) < 0:
+                    fig.add_hrect(y0=min(lyapunov_values) * 1.1, y1=0, 
+                                 fillcolor="green", opacity=0.1, 
+                                 annotation_text="Stable", annotation_position="bottom right")
+                
+                if show_theory:
+                    # Add critical points
+                    fig.add_vline(x=1.0, line_dash="dash", line_color="green", opacity=0.5)
+                    fig.add_annotation(x=1.0, y=0.1, text="Pitchfork", textangle=-90)
+                    
+                    if rho_max > 24.06:
+                        fig.add_vline(x=24.06, line_dash="dash", line_color="purple", opacity=0.5)
+                        fig.add_annotation(x=24.06, y=0.1, text="Chaos onset", textangle=-90)
+                    
+                    if rho_max > 24.74:
+                        fig.add_vline(x=24.74, line_dash="dash", line_color="red", opacity=0.5)
+                        fig.add_annotation(x=24.74, y=0.1, text="Strange attractor", textangle=-90)
+                
+                fig.update_layout(
+                    title="Largest Lyapunov Exponent vs ρ (Lorenz System)",
+                    xaxis_title="ρ",
+                    yaxis_title="Largest Lyapunov Exponent",
+                    height=600,
+                    template="plotly_white"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Show statistics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Max LLE", f"{max(lyapunov_values):.4f}")
+                with col2:
+                    chaotic_fraction = sum(1 for l in lyapunov_values if l > 0) / len(lyapunov_values)
+                    st.metric("Chaotic fraction", f"{chaotic_fraction:.1%}")
+                with col3:
+                    st.metric("Min LLE", f"{min(lyapunov_values):.4f}")
+            
+            elif system == "Hénon Map":
+                a_values = np.linspace(a_min, a_max, n_params)
+                lyapunov_values = []
+                
+                progress_bar = st.progress(0)
+                
+                for i, a in enumerate(a_values):
+                    x, y = 0.5, 0.5
+                    lyap_sum = 0
+                    
+                    # Skip transient
+                    for _ in range(int(iterations * discard_transient / 100)):
+                        x_new = 1 - a * x**2 + y
+                        y_new = b_henon * x
+                        x, y = x_new, y_new
+                    
+                    # Compute Lyapunov
+                    for _ in range(iterations):
+                        x_new = 1 - a * x**2 + y
+                        y_new = b_henon * x
+                        
+                        # Jacobian eigenvalues
+                        J11 = -2 * a * x
+                        J12 = 1
+                        J21 = b_henon
+                        J22 = 0
+                        
+                        # Characteristic polynomial: λ² + 2ax*λ - b = 0
+                        discriminant = 4 * a**2 * x**2 + 4 * b_henon
+                        if discriminant >= 0:
+                            lambda1 = (-2*a*x + np.sqrt(discriminant)) / 2
+                            lambda2 = (-2*a*x - np.sqrt(discriminant)) / 2
+                            lyap_sum += np.log(max(abs(lambda1), abs(lambda2)))
+                        
+                        x, y = x_new, y_new
+                    
+                    lyapunov_values.append(lyap_sum / iterations)
+                    progress_bar.progress((i + 1) / n_params)
+                
+                progress_bar.empty()
+                
+                # Create plot
+                fig = go.Figure()
+                
+                fig.add_trace(go.Scatter(
+                    x=a_values,
+                    y=lyapunov_values,
+                    mode='lines',
+                    line=dict(color='blue', width=2),
+                    name='Largest Lyapunov Exponent'
+                ))
+                
+                fig.add_hline(y=0, line_dash="dash", line_color="red", opacity=0.5)
+                
+                # Color regions
+                if max(lyapunov_values) > 0:
+                    fig.add_hrect(y0=0, y1=max(lyapunov_values) * 1.1, 
+                                 fillcolor="red", opacity=0.1, 
+                                 annotation_text="Chaotic", annotation_position="top right")
+                if min(lyapunov_values) < 0:
+                    fig.add_hrect(y0=min(lyapunov_values) * 1.1, y1=0, 
+                                 fillcolor="green", opacity=0.1, 
+                                 annotation_text="Stable", annotation_position="bottom right")
+                
+                if show_theory:
+                    # Add bifurcation points
+                    fig.add_vline(x=0.75, line_dash="dash", line_color="green", opacity=0.5)
+                    fig.add_annotation(x=0.75, y=0.05, text="Fixed point", textangle=-90, yref="paper")
+                    
+                    fig.add_vline(x=1.0, line_dash="dash", line_color="orange", opacity=0.5)
+                    fig.add_annotation(x=1.0, y=0.95, text="Period-2", textangle=-90, yref="paper")
+                    
+                    fig.add_vline(x=1.368, line_dash="dash", line_color="purple", opacity=0.5)
+                    fig.add_annotation(x=1.368, y=0.05, text="Chaos", textangle=-90, yref="paper")
+                
+                fig.update_layout(
+                    title="Largest Lyapunov Exponent vs a (Hénon Map)",
+                    xaxis_title="a",
+                    yaxis_title="Largest Lyapunov Exponent",
+                    height=600,
+                    template="plotly_white"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+        
+        elif viz_type == "Convergence Plot":
+            # Show convergence of Lyapunov exponent over time
+            if system == "Logistic Map":
+                r = st.slider("Select r value", r_min, r_max, 3.8)
+                
+                x = 0.5
+                lyap_values = []
+                lyap_running_avg = []
+                
+                # Skip initial transient
+                for _ in range(100):
+                    x = r * x * (1 - x)
+                
+                # Compute and track convergence
+                lyap_sum = 0
+                for i in range(iterations):
+                    x = r * x * (1 - x)
+                    if 0 < x < 1:
+                        instant_lyap = np.log(abs(r * (1 - 2*x)))
+                        lyap_sum += instant_lyap
+                        lyap_values.append(instant_lyap)
+                        lyap_running_avg.append(lyap_sum / (i + 1))
+                
+                # Create convergence plot
+                fig = make_subplots(rows=2, cols=1, 
+                                   subplot_titles=("Instantaneous Lyapunov Exponent", 
+                                                  "Running Average"),
+                                   vertical_spacing=0.1)
+                
+                # Instantaneous values
+                fig.add_trace(go.Scatter(
+                    y=lyap_values[:1000],  # Show first 1000 points
+                    mode='lines',
+                    line=dict(color='lightblue', width=1),
+                    name='Instantaneous'
+                ), row=1, col=1)
+                
+                # Running average
+                fig.add_trace(go.Scatter(
+                    y=lyap_running_avg,
+                    mode='lines',
+                    line=dict(color='blue', width=2),
+                    name='Running Average'
+                ), row=2, col=1)
+                
+                # Add final value line
+                final_value = lyap_running_avg[-1]
+                fig.add_hline(y=final_value, line_dash="dash", line_color="red", 
+                             row=2, col=1, opacity=0.5)
+                
+                fig.update_xaxes(title_text="Iteration", row=2, col=1)
+                fig.update_yaxes(title_text="LLE", row=1, col=1)
+                fig.update_yaxes(title_text="Average LLE", row=2, col=1)
+                
+                fig.update_layout(
+                    title=f"Lyapunov Exponent Convergence (r = {r:.2f})",
+                    height=700,
+                    template="plotly_white",
+                    showlegend=False
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Convergence metrics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Final LLE", f"{final_value:.4f}")
+                with col2:
+                    if final_value > 0:
+                        st.metric("System State", "Chaotic", delta="Positive LLE")
+                    else:
+                        st.metric("System State", "Stable", delta="Negative LLE")
+                with col3:
+                    # Estimate convergence rate
+                    last_100 = lyap_running_avg[-100:]
+                    variation = np.std(last_100) if len(last_100) > 1 else 0
+                    st.metric("Convergence", f"σ = {variation:.6f}")
+        
+        elif viz_type == "Finite-Time Heatmap":
+            # Create heatmap of finite-time Lyapunov exponents
+            if system == "Logistic Map":
+                # Grid of initial conditions and parameters
+                r_grid = np.linspace(r_min, r_max, 50)
+                x0_grid = np.linspace(0.1, 0.9, 50)
+                
+                ftle_map = np.zeros((len(x0_grid), len(r_grid)))
+                
+                progress_bar = st.progress(0)
+                window_size = 100
+                
+                for i, x0 in enumerate(x0_grid):
+                    for j, r in enumerate(r_grid):
+                        x = x0
+                        lyap_sum = 0
+                        
+                        # Compute finite-time Lyapunov
+                        for _ in range(window_size):
+                            x = r * x * (1 - x)
+                            if 0 < x < 1:
+                                lyap_sum += np.log(abs(r * (1 - 2*x)))
+                        
+                        ftle_map[i, j] = lyap_sum / window_size
+                    
+                    progress_bar.progress((i + 1) / len(x0_grid))
+                
+                progress_bar.empty()
+                
+                # Create heatmap
+                fig = go.Figure(data=go.Heatmap(
+                    z=ftle_map,
+                    x=r_grid,
+                    y=x0_grid,
+                    colorscale=color_scheme,
+                    colorbar=dict(title="FTLE"),
+                    hoverongaps=False
+                ))
+                
+                # Add contour at LLE = 0
+                fig.add_contour(
+                    z=ftle_map,
+                    x=r_grid,
+                    y=x0_grid,
+                    contours=dict(
+                        start=0,
+                        end=0,
+                        size=0.1,
+                        coloring='lines',
+                        showlabels=True
+                    ),
+                    line=dict(color='white', width=2),
+                    name='LLE = 0'
+                )
+                
+                fig.update_layout(
+                    title="Finite-Time Lyapunov Exponent Heatmap",
+                    xaxis_title="r",
+                    yaxis_title="Initial condition x₀",
+                    height=600,
+                    template="plotly_white"
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Show regions analysis
+                st.markdown("### Region Analysis")
+                chaotic_fraction = np.sum(ftle_map > 0) / ftle_map.size
+                st.info(f"**{chaotic_fraction:.1%}** of parameter space shows chaotic behavior (positive FTLE)")
+        
+        elif viz_type == "Spectrum Analysis":
+            # Full Lyapunov spectrum for multi-dimensional systems
+            if system == "Lorenz System":
+                rho = st.slider("Select ρ value", rho_min, rho_max, 28.0)
+                
+                # Initial conditions
+                state = np.array([1.0, 1.0, 1.0])
+                
+                # Initialize 3 orthonormal perturbation vectors
+                Q = np.eye(3) * 1e-8
+                
+                lyap_sums = np.zeros(3)
+                n_renorm = 0
+                t = 0
+                
+                # For plotting convergence
+                lyap_history = [[], [], []]
+                
+                progress_bar = st.progress(0)
+                
+                # Skip transient
+                transient_time = 50
+                while t < transient_time:
+                    # RK4 integration
+                    k1 = np.array([sigma * (state[1] - state[0]),
+                                  state[0] * (rho - state[2]) - state[1],
+                                  state[0] * state[1] - beta * state[2]])
+                    k2_state = state + 0.5 * dt * k1
+                    k2 = np.array([sigma * (k2_state[1] - k2_state[0]),
+                                  k2_state[0] * (rho - k2_state[2]) - k2_state[1],
+                                  k2_state[0] * k2_state[1] - beta * k2_state[2]])
+                    state += dt * k2
+                    t += dt
+                
+                # Compute spectrum
+                t = 0
+                while t < integration_time:
+                    # Evolve perturbations
+                    for j in range(3):
+                        perturbed = state + Q[:, j]
+                        
+                        # RK4 for perturbed trajectory
+                        k1p = np.array([sigma * (perturbed[1] - perturbed[0]),
+                                       perturbed[0] * (rho - perturbed[2]) - perturbed[1],
+                                       perturbed[0] * perturbed[1] - beta * perturbed[2]])
+                        k2_perturbed = perturbed + 0.5 * dt * k1p
+                        k2p = np.array([sigma * (k2_perturbed[1] - k2_perturbed[0]),
+                                       k2_perturbed[0] * (rho - k2_perturbed[2]) - k2_perturbed[1],
+                                       k2_perturbed[0] * k2_perturbed[1] - beta * k2_perturbed[2]])
+                        perturbed += dt * k2p
+                        
+                        Q[:, j] = perturbed - state
+                    
+                    # Evolve main trajectory
+                    k1 = np.array([sigma * (state[1] - state[0]),
+                                  state[0] * (rho - state[2]) - state[1],
+                                  state[0] * state[1] - beta * state[2]])
+                    k2_state = state + 0.5 * dt * k1
+                    k2 = np.array([sigma * (k2_state[1] - k2_state[0]),
+                                  k2_state[0] * (rho - k2_state[2]) - k2_state[1],
+                                  k2_state[0] * k2_state[1] - beta * k2_state[2]])
+                    state += dt * k2
+                    
+                    # Gram-Schmidt orthogonalization
+                    if (n_renorm + 1) * renorm_interval < t:
+                        Q, R = np.linalg.qr(Q)
+                        for j in range(3):
+                            lyap_sums[j] += np.log(abs(R[j, j]))
+                            if n_renorm > 0:
+                                lyap_history[j].append(lyap_sums[j] / (n_renorm * renorm_interval))
+                        n_renorm += 1
+                    
+                    t += dt
+                    
+                    if int(t / integration_time * 100) % 5 == 0:
+                        progress_bar.progress(t / integration_time)
+                
+                progress_bar.empty()
+                
+                # Final spectrum
+                spectrum = lyap_sums / (n_renorm * renorm_interval)
+                spectrum_sorted = sorted(spectrum, reverse=True)
+                
+                # Create plots
+                fig = make_subplots(rows=2, cols=1,
+                                   subplot_titles=("Lyapunov Spectrum Convergence", 
+                                                  "Final Lyapunov Spectrum"),
+                                   vertical_spacing=0.15)
+                
+                # Convergence plot
+                colors = ['red', 'green', 'blue']
+                for i, (history, color) in enumerate(zip(lyap_history, colors)):
+                    fig.add_trace(go.Scatter(
+                        y=history,
+                        mode='lines',
+                        line=dict(color=color, width=2),
+                        name=f'λ{i+1}'
+                    ), row=1, col=1)
+                
+                # Final spectrum bar plot
+                fig.add_trace(go.Bar(
+                    x=['λ₁', 'λ₂', 'λ₃'],
+                    y=spectrum_sorted,
+                    marker=dict(color=['red' if l > 0 else 'green' for l in spectrum_sorted]),
+                    name='Spectrum'
+                ), row=2, col=1)
+                
+                # Add zero line
+                fig.add_hline(y=0, line_dash="dash", line_color="gray", row=1, col=1)
+                fig.add_hline(y=0, line_dash="dash", line_color="gray", row=2, col=1)
+                
+                fig.update_layout(
+                    title=f"Lyapunov Spectrum Analysis (ρ = {rho:.1f})",
+                    height=700,
+                    template="plotly_white",
+                    showlegend=True
+                )
+                
+                fig.update_xaxes(title_text="Renormalization step", row=1, col=1)
+                fig.update_yaxes(title_text="Lyapunov exponent", row=1, col=1)
+                fig.update_yaxes(title_text="Value", row=2, col=1)
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Compute derived quantities
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("λ₁", f"{spectrum_sorted[0]:.4f}")
+                with col2:
+                    st.metric("λ₂", f"{spectrum_sorted[1]:.4f}")
+                with col3:
+                    st.metric("λ₃", f"{spectrum_sorted[2]:.4f}")
+                with col4:
+                    # Kaplan-Yorke dimension
+                    if spectrum_sorted[0] > 0 and spectrum_sorted[2] < 0:
+                        if spectrum_sorted[1] >= 0:
+                            D_KY = 2 + (spectrum_sorted[0] + spectrum_sorted[1]) / abs(spectrum_sorted[2])
+                        else:
+                            D_KY = 1 + spectrum_sorted[0] / abs(spectrum_sorted[1])
+                        st.metric("Kaplan-Yorke Dimension", f"{D_KY:.3f}")
+                    else:
+                        st.metric("Kaplan-Yorke Dimension", "N/A")
+                
+                # Lyapunov sum rule check
+                lyap_sum = sum(spectrum_sorted)
+                divergence = -sigma - 1 - beta  # ∇·f for Lorenz
+                st.info(f"**Sum rule check:** Σλᵢ = {lyap_sum:.4f}, ∇·f = {divergence:.4f} (should be equal)")
+    
+    # Theory expander
+    with st.expander("📚 Theoretical Background"):
+        st.markdown("""
+        ## Lyapunov Exponents: Measuring Chaos
+        
+        Lyapunov exponents quantify the average rate of separation of infinitesimally close trajectories:
+        
+        $$\\lambda = \\lim_{t \\to \\infty} \\frac{1}{t} \\ln\\left(\\frac{|\\delta\\mathbf{x}(t)|}{|\\delta\\mathbf{x}_0|}\\right)$$
+        
+        ### Interpretation:
+        - **λ > 0**: Chaotic behavior (exponential divergence)
+        - **λ = 0**: Marginally stable (e.g., limit cycles)
+        - **λ < 0**: Stable/attracting behavior
+        
+        ### For Different Systems:
+        
+        #### 1. **Logistic Map**
+        Analytical formula: $\\lambda = \\frac{1}{n}\\sum_{i=0}^{n-1} \\ln|r(1-2x_i)|$
+        - Period-1: λ < 0
+        - Chaos onset (r ≈ 3.57): λ crosses 0
+        - Full chaos (r = 4): λ ≈ ln(2) ≈ 0.693
+        
+        #### 2. **Lorenz System**
+        Three exponents (λ₁ ≥ λ₂ ≥ λ₃):
+        - Strange attractor: λ₁ > 0, λ₂ ≈ 0, λ₃ < 0
+        - Sum rule: Σλᵢ = ∇·f = -(σ + 1 + β)
+        - Kaplan-Yorke dimension: $D_{KY} = j + \\frac{\\sum_{i=1}^j \\lambda_i}{|\\lambda_{j+1}|}$
+        
+        #### 3. **Hénon Map**
+        Two exponents:
+        - Chaotic regime: λ₁ > 0, λ₂ < 0
+        - Area contraction: λ₁ + λ₂ = ln(b) < 0
+        
+        ### Practical Considerations:
+        
+        1. **Convergence**: Long integration times needed (typically 10³-10⁴ characteristic times)
+        2. **Renormalization**: Essential to prevent overflow/underflow
+        3. **Transients**: Discard initial behavior for accurate estimates
+        4. **Finite-time LEs**: Useful for identifying coherent structures
+        
+        ### Numerical Methods:
+        
+        #### Standard Algorithm:
+        1. Evolve reference trajectory
+        2. Evolve perturbation vector(s)
+        3. Renormalize periodically: δx → δx/|δx|
+        4. Sum logarithms of stretching factors
+        
+        #### For Full Spectrum:
+        - Use Gram-Schmidt orthogonalization
+        - Maintain n orthonormal vectors for n-D system
+        - QR decomposition at each renormalization
+        
+        ### Relationships:
+        
+        - **Positive LLE ↔ Chaos**: Necessary but not sufficient
+        - **LLE ≈ Kolmogorov-Sinai entropy**: For chaotic systems
+        - **Lyapunov time**: τ = 1/λ₁ (predictability horizon)
+        """)
+        
+        # Add system-specific details
+        if 'lyapunov_system' in st.session_state:
+            selected_system = st.session_state.lyapunov_system
+            
+            st.markdown("---")
+            st.markdown(f"### Specific Details for {selected_system}")
+            
+            if selected_system == "Logistic Map":
+                st.markdown("""
+                - **Periodic windows**: Sharp drops to negative λ
+                - **Band-merging**: Local maxima in λ(r)
+                - **Maximum chaos**: λ(4) = ln(2) ≈ 0.693
+                - **Feigenbaum cascade**: λ → 0 at accumulation point
+                """)
+                
+            elif selected_system == "Lorenz System":
+                st.markdown("""
+                - **Classic values** (σ=10, β=8/3, ρ=28): λ₁ ≈ 0.906, λ₂ ≈ 0, λ₃ ≈ -14.572
+                - **Lorenz attractor dimension**: D_KY ≈ 2.06
+                - **Predictability time**: ~1.1 time units
+                - **Periodic windows**: e.g., around ρ ≈ 99.65
+                """)
+                
+            elif selected_system == "Duffing Oscillator":
+                st.markdown("""
+                - **Driven system**: Largest LE typically increases with forcing γ
+                - **Multiple attractors**: Different ICs → different LEs
+                - **Resonance effects**: Sharp changes near ω ≈ ω₀
+                - **Transient chaos**: Positive LE before settling to periodic
+                """)
+                
+            elif selected_system == "Van der Pol Oscillator":
+                st.markdown("""
+                - **Always λ₁ ≤ 0**: No chaos (limit cycle attractor)
+                - **λ₁ = 0**: On the limit cycle (marginal stability)
+                - **λ₁ < 0**: Inside basin of attraction
+                - **Relaxation oscillations**: Slower convergence for large μ
+                """)
+                
+            elif selected_system == "Hénon Map":
+                st.markdown("""
+                - **Standard parameters** (a=1.4, b=0.3): λ₁ ≈ 0.42, λ₂ ≈ -1.62
+                - **Hénon attractor dimension**: D_KY ≈ 1.26
+                - **Area contraction**: λ₁ + λ₂ = ln(0.3) ≈ -1.20
+                - **Crisis points**: Sudden changes in attractor structure
+                """)
+            
+        st.markdown("""
+        ---
+        ### Tips for Your Analysis:
+        
+        1. **Compare with bifurcation diagram**: Overlay λ(parameter) with bifurcation plot
+        2. **Check convergence**: Plot running average vs time
+        3. **Parameter sweeps**: Find chaos boundaries precisely
+        4. **Initial condition sensitivity**: Use FTLE maps
+        5. **Validate numerics**: Check sum rules and known values
+        
+        ### Common Pitfalls:
+        
+        - **Too short integration**: Use at least 1000 × characteristic time
+        - **Poor renormalization interval**: Causes numerical errors
+        - **Ignoring transients**: Biases results toward initial behavior
+        - **Single trajectory**: Multiple ICs reveal attractor structure
+        """)
 
 with tabs[4]:
     st.header("Hopf Explorer")
