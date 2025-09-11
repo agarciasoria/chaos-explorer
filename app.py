@@ -1944,66 +1944,66 @@ with tabs[2]:
                 
                 progress_bar = st.progress(0)
                 
+                # Use adaptive sampling - fewer points for small μ (expensive) and large μ (simple)
+                if mu_max > 1:
+                    # Custom sampling: dense in transition region, sparse elsewhere
+                    mu_samples = []
+                    if mu_min < 0.1:
+                        # Very few points for tiny μ (use theory instead)
+                        mu_samples.extend(np.linspace(max(0.01, mu_min), 0.1, min(5, mu_points//10)))
+                    if mu_max > 0.1:
+                        # More points in transition region 0.1 to 2
+                        transition_end = min(2, mu_max)
+                        mu_samples.extend(np.linspace(max(0.1, mu_min), transition_end, mu_points//2))
+                    if mu_max > 2:
+                        # Fewer points for large μ (relaxation regime)
+                        mu_samples.extend(np.linspace(2, mu_max, mu_points//3))
+                    mu_values = np.array(mu_samples)
+                
                 for i, mu in enumerate(mu_values):
                     if mu <= 0:
-                        # No limit cycle for μ ≤ 0
                         bifurcation_data.append((mu, 0))
+                    elif mu < 0.05:
+                        # For very small μ, use theoretical approximation (much faster)
+                        amplitude = 2 * np.sqrt(mu)
+                        bifurcation_data.append((mu, amplitude))
+                        bifurcation_data.append((mu, -amplitude))
                     else:
-                        # Numerical integration for μ > 0
-                        # Adaptive parameters based on μ
-                        if mu < 0.1:
-                            dt_vdp = 0.01
-                            # Better initial condition near the limit cycle
+                        # Numerical integration
+                        if mu < 0.5:
+                            dt_vdp = 0.05  # Larger timestep
                             x0, v0 = 2*np.sqrt(mu), 0.0
-                            t_transient_adaptive = max(100, t_transient_vdp)
-                            t_collect_adaptive = max(50, t_collect_vdp)
-                        elif mu < 1:
-                            dt_vdp = 0.01
-                            x0, v0 = 2*np.sqrt(mu), 0.0
-                            t_transient_adaptive = max(50, t_transient_vdp)
-                            t_collect_adaptive = max(30, t_collect_vdp)
-                        elif mu < 5:
-                            dt_vdp = 0.01
-                            x0, v0 = 2.0, 0.0
-                            t_transient_adaptive = max(40, t_transient_vdp)
-                            t_collect_adaptive = max(40, t_collect_vdp)
+                            t_transient_adaptive = min(20, t_transient_vdp)  # Much shorter
+                            t_collect_adaptive = 10
+                        elif mu < 2:
+                            dt_vdp = 0.02
+                            x0, v0 = 1.5, 0.0
+                            t_transient_adaptive = min(15, t_transient_vdp)
+                            t_collect_adaptive = 10
                         else:
-                            dt_vdp = 0.001  # Very small for relaxation oscillations
+                            dt_vdp = 0.01
                             x0, v0 = 2.0, 0.0
-                            t_transient_adaptive = max(30, t_transient_vdp)
-                            t_collect_adaptive = max(30, t_collect_vdp)
+                            t_transient_adaptive = min(10, t_transient_vdp)
+                            t_collect_adaptive = 5  # Fewer cycles needed
                         
                         n_transient = int(t_transient_adaptive / dt_vdp)
                         n_collect = int(t_collect_adaptive / dt_vdp)
                         
                         x, v = x0, v0
                         
-                        # Skip transient
+                        # Skip transient - using simpler Euler method for speed during transient
                         for _ in range(n_transient):
-                            # RK4 step
-                            k1x = v
-                            k1v = mu * (1 - x**2) * v - x
-                            
-                            k2x = v + 0.5*dt_vdp*k1v
-                            k2v = mu * (1 - (x + 0.5*dt_vdp*k1x)**2) * (v + 0.5*dt_vdp*k1v) - (x + 0.5*dt_vdp*k1x)
-                            
-                            k3x = v + 0.5*dt_vdp*k2v
-                            k3v = mu * (1 - (x + 0.5*dt_vdp*k2x)**2) * (v + 0.5*dt_vdp*k2v) - (x + 0.5*dt_vdp*k2x)
-                            
-                            k4x = v + dt_vdp*k3v
-                            k4v = mu * (1 - (x + dt_vdp*k3x)**2) * (v + dt_vdp*k3v) - (x + dt_vdp*k3x)
-                            
-                            x += dt_vdp * (k1x + 2*k2x + 2*k3x + k4x) / 6
-                            v += dt_vdp * (k1v + 2*k2v + 2*k3v + k4v) / 6
+                            dx = v
+                            dv = mu * (1 - x**2) * v - x
+                            x += dt_vdp * dx
+                            v += dt_vdp * dv
                         
-                        # Collect maxima
-                        x_max_list = []
-                        x_min_list = []
-                        x_prev = x
+                        # Collect maxima using RK4 for accuracy
+                        x_extrema = []
                         v_prev = v
                         
                         for _ in range(n_collect):
-                            # RK4 step
+                            # RK4 step (only during collection phase)
                             k1x = v
                             k1v = mu * (1 - x**2) * v - x
                             
@@ -2019,43 +2019,29 @@ with tabs[2]:
                             x_new = x + dt_vdp * (k1x + 2*k2x + 2*k3x + k4x) / 6
                             v_new = v + dt_vdp * (k1v + 2*k2v + 2*k3v + k4v) / 6
                             
-                            # Improved peak detection with interpolation
-                            if v_prev * v_new < 0:  # Sign change in velocity
-                                # Linear interpolation to find exact extremum
-                                t_exact = -v_prev / (v_new - v_prev) * dt_vdp
-                                x_interp = x_prev + (x_new - x_prev) * t_exact / dt_vdp
-                                
-                                if v_prev > 0:  # Maximum
-                                    x_max_list.append(x_interp)
-                                else:  # Minimum
-                                    x_min_list.append(x_interp)
+                            # Simple extrema detection
+                            if v_prev * v_new < 0:
+                                x_extrema.append(x)
                             
-                            x_prev = x
                             v_prev = v
                             x = x_new
                             v = v_new
                         
                         # Add extrema to bifurcation data
-                        if x_max_list:
-                            # Use the last few values after transients have died out
-                            avg_max = np.mean(x_max_list[-min(10, len(x_max_list)):])
-                            bifurcation_data.append((mu, avg_max))
-                        
-                        if x_min_list:
-                            avg_min = np.mean(x_min_list[-min(10, len(x_min_list)):])
-                            bifurcation_data.append((mu, avg_min))
-                        
-                        # If no extrema found (shouldn't happen), use theoretical approximation
-                        if not x_max_list and not x_min_list:
-                            if mu < 0.1:
-                                amplitude = 2 * np.sqrt(mu)
+                        if x_extrema:
+                            # Group into maxima and minima
+                            x_sorted = sorted(x_extrema)
+                            if len(x_sorted) >= 2:
+                                bifurcation_data.append((mu, x_sorted[-1]))  # Maximum
+                                bifurcation_data.append((mu, x_sorted[0]))   # Minimum
                             else:
+                                # Use theoretical if not enough data
                                 amplitude = 2 * (1 - np.exp(-mu/2))
-                            bifurcation_data.append((mu, amplitude))
-                            bifurcation_data.append((mu, -amplitude))
+                                bifurcation_data.append((mu, amplitude))
+                                bifurcation_data.append((mu, -amplitude))
                     
-                    if i % max(1, (mu_points // 20)) == 0:
-                        progress_bar.progress((i + 1) / mu_points)
+                    if i % max(1, (len(mu_values) // 20)) == 0:
+                        progress_bar.progress((i + 1) / len(mu_values))
                 
                 progress_bar.empty()
                 
@@ -2115,11 +2101,8 @@ with tabs[2]:
                     amplitude_theory = []
                     for mu in mu_theory:
                         if mu < 0.1:
-                            # Near Hopf bifurcation: amplitude ∝ √μ
                             amp = 2 * np.sqrt(mu)
                         else:
-                            # Transition to relaxation oscillations
-                            # Amplitude approaches 2 as 2(1 - exp(-μ/2))
                             amp = 2 * (1 - np.exp(-mu/2))
                         amplitude_theory.append(amp)
                     
@@ -2151,6 +2134,7 @@ with tabs[2]:
                 st.plotly_chart(fig, use_container_width=True)
                 st.session_state.bifurcation_data = bifurcation_data
                 st.session_state.bifurcation_type = system
+    
             
             else:  # Hénon Map
                 # Hénon map bifurcation
