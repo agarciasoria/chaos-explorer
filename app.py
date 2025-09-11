@@ -2942,7 +2942,7 @@ with tabs[3]:  # Lyapunov Exponents tab
                 # Compute and track convergence
                 lyap_sum = 0
                 for i in range(iterations):
-                    x = r * x * (1 - x)
+                    x = r_convergence * x * (1 - x)
                     if 0 < x < 1:
                         instant_lyap = np.log(abs(r * (1 - 2*x)))
                         lyap_sum += instant_lyap
