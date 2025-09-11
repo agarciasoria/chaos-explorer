@@ -1837,42 +1837,48 @@ with tabs[2]:
                 
                 # Add annotations for key transitions
                 if show_theory:
-                    # The exact bifurcation points depend on the parameters
-                    # For typical Duffing parameters (δ=0.3, α=-1, β=1, ω=1.2):
+                    # Add parameter info
+                    param_text = f"δ={delta_duff:.2f}, α={alpha_duff:.1f}, β={beta_duff:.1f}, ω={omega_duff:.2f}"
+                    fig.add_annotation(x=0.5, y=0.02, text=param_text, 
+                                    xref="paper", yref="paper", showarrow=False,
+                                    bgcolor="rgba(255,255,255,0.8)", font=dict(size=10))
                     
-                    if abs(delta_duff - 0.3) < 0.1 and abs(alpha_duff + 1) < 0.1 and abs(beta_duff - 1) < 0.1 and abs(omega_duff - 1.2) < 0.1:
-                        # Standard Duffing oscillator bifurcations
-                        fig.add_vline(x=0.18, line_dash="dash", line_color="green", opacity=0.5)
-                        fig.add_annotation(x=0.18, y=0.05, text="Period-1", showarrow=False, textangle=-90, yref="paper")
-                        
-                        fig.add_vline(x=0.22, line_dash="dash", line_color="orange", opacity=0.5)
-                        fig.add_annotation(x=0.22, y=0.95, text="Period-doubling", showarrow=False, textangle=-90, yref="paper")
-                        
-                        fig.add_vline(x=0.28, line_dash="dash", line_color="red", opacity=0.5)
-                        fig.add_annotation(x=0.28, y=0.05, text="Chaos onset", showarrow=False, textangle=-90, yref="paper")
-                        
-                        fig.add_vline(x=0.37, line_dash="dash", line_color="blue", opacity=0.5)
-                        fig.add_annotation(x=0.37, y=0.95, text="Period-3 window", showarrow=False, textangle=-90, yref="paper")
+                    # General annotations based on gamma range
+                    gamma_range = gamma_max - gamma_min
                     
-                    else:
-                        # For non-standard parameters, add general guidance
-                        # Estimate based on forcing strength
-                        gamma_range = gamma_max - gamma_min
+                    # Mark regions based on typical Duffing behavior
+                    if alpha_duff < 0:  # Double-well potential
+                        # Early region - usually stable
+                        fig.add_annotation(
+                            x=gamma_min + 0.15*gamma_range, y=0.95, 
+                            text="Stable periodic", 
+                            showarrow=True, arrowhead=2,
+                            ax=0, ay=-30, yref="paper"
+                        )
                         
-                        # Add parameter annotation
-                        param_text = f"δ={delta_duff:.2f}, α={alpha_duff:.1f}, β={beta_duff:.1f}, ω={omega_duff:.2f}"
-                        fig.add_annotation(x=0.5, y=0.98, text=param_text, 
-                                        xref="paper", yref="paper", showarrow=False,
-                                        bgcolor="rgba(255,255,255,0.8)")
+                        # Middle region - bifurcations
+                        fig.add_annotation(
+                            x=gamma_min + 0.35*gamma_range, y=0.5,
+                            text="Bifurcation cascade", 
+                            showarrow=True, arrowhead=2,
+                            ax=-50, ay=0, yref="paper"
+                        )
                         
-                        # Add spring type annotation
-                        if abs(beta_duff) > 0.1:  # Nonlinear case
-                            fig.add_annotation(
-                                x=0.02, y=0.5, xref="paper", yref="paper",
-                                text="Hardening spring" if beta_duff > 0 else "Softening spring",
-                                showarrow=False, bgcolor="rgba(255,255,255,0.8)",
-                                bordercolor="gray", borderwidth=1
-                            )
+                        # Chaotic region
+                        fig.add_annotation(
+                            x=gamma_min + 0.6*gamma_range, y=0.95,
+                            text="Chaotic dynamics", 
+                            showarrow=True, arrowhead=2,
+                            ax=0, ay=-30, yref="paper"
+                        )
+                        
+                        # Note about coexisting attractors
+                        fig.add_annotation(
+                            x=0.98, y=0.02, xref="paper", yref="paper",
+                            text="Note: Multiple attractors may coexist",
+                            showarrow=False, font=dict(size=9, style="italic"),
+                            bgcolor="rgba(255,255,200,0.8)"
+                        )
                 
                 st.plotly_chart(fig, use_container_width=True)
                 st.session_state.bifurcation_data = bifurcation_data
