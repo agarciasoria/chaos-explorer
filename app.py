@@ -2059,10 +2059,8 @@ with tabs[2]:
                         mode='markers',
                         marker=dict(
                             size=point_size,
-                            color=x_extrema,
-                            colorscale=color_scheme.lower(),
-                            showscale=False,
-                            opacity=0.6
+                            color='cyan',  # Bright single color
+                            opacity=0.8
                         ),
                         name='Limit cycle extrema'
                     ))
@@ -2099,7 +2097,8 @@ with tabs[2]:
                         x=mu_theory,
                         y=amplitude_theory,
                         mode='lines',
-                        line=dict(color='red', dash='dash'),
+                        line=dict(color='red', dash='dash', width=2),  # Thinner line
+                        opacity=0.7,  # More transparent
                         name='Theoretical amplitude'
                     ))
                     fig.add_trace(go.Scatter(
