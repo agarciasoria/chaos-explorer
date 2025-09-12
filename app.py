@@ -6080,88 +6080,181 @@ with tabs[4]:
     # ----- Enhanced Theory Section -----
     with st.expander("📚 Theory: Hopf Bifurcations & Slow Passages", expanded=False):
         st.markdown(r"""
-        ### 🌀 Hopf Bifurcation Basics
+        ### 🌀 What is a Hopf Bifurcation?
         
-        A **Hopf bifurcation** occurs when a fixed point loses stability as a parameter α crosses a
-        critical value, giving rise to periodic oscillations. In the canonical normal form:
+        A **Hopf bifurcation** occurs when a fixed point of a dynamical system loses stability 
+        and a small oscillating solution (limit cycle) branches off. Think of it as the birth of oscillations!
+        
+        #### The Normal Form
+        The simplest example is given by:
         $$
         \dot{x} = \alpha x - y - x(x^2+y^2), \quad 
         \dot{y} = x + \alpha y - y(x^2+y^2)
         $$
         
-        - For $\alpha < 0$: Stable equilibrium at origin
-        - For $\alpha = 0$: Bifurcation point (eigenvalues $\lambda = \pm i$)
-        - For $\alpha > 0$: Unstable equilibrium + stable limit cycle of radius $\sqrt{\alpha}$
+        As the parameter $\alpha$ varies:
+        - **$\alpha < 0$**: Stable spiral at origin (all trajectories spiral inward)
+        - **$\alpha = 0$**: Critical point (eigenvalues are $\lambda = \pm i$)
+        - **$\alpha > 0$**: Unstable spiral + stable limit cycle of radius $\sqrt{\alpha}$
         
-        ### 🐌 Slow Passage Phenomenon
+        ### 🐌 The Slow Passage Problem
         
-        When the parameter evolves slowly with time: $\dot{\alpha} = \varepsilon$ (where $0 < \varepsilon \ll 1$),
-        the system exhibits a **delay** in the onset of oscillations:
+        **Key Question**: What happens if $\alpha$ changes slowly with time?
         
-        #### Key Results from My Thesis:
+        Instead of a fixed $\alpha$, we have:
+        $$\dot{\alpha} = \varepsilon \quad \text{where } 0 < \varepsilon \ll 1$$
         
-        1. **Fast-Slow System Structure**:
-           - Fast variables: $(x, y)$ - the state variables
-           - Slow variable: $\alpha$ - the bifurcation parameter
-           - Critical manifold: $C_0 = \{(x,y,\alpha) : x = y = 0\}$ (the α-axis)
+        This creates a **fast-slow system**:
+        - **Fast variables**: $(x, y)$ - change on timescale $\sim 1$
+        - **Slow variable**: $\alpha$ - changes on timescale $\sim 1/\varepsilon$
         
-        2. **Delay Quantification** (WKB Method):
-           - Starting from $\alpha_0 < 0$, oscillations begin at $\alpha_j \approx |\alpha_0|$
-           - This gives a delay time of $\tau_K = \frac{2|\alpha_0|}{\varepsilon}$
-           - The trajectory stays exponentially close to $C_0$ until $\alpha$ reaches $\alpha_j$
+        ### 📐 Critical and Slow Manifolds
         
-        3. **Entry-Exit Function**:
-           The complex phase function
-           $$\Psi(\tau) = \int_{\tau_*}^{\tau} \lambda_1(\alpha^0(s)) \, ds$$
-           determines the asymptotic moments of fall and jump through its level curves.
+        #### Critical Manifold $C_0$
+        When $\varepsilon = 0$, the fast variables equilibrate instantly. The set of equilibria is:
+        $$C_0 = \{(x,y,\alpha) : x = y = 0\}$$
+        This is just the $\alpha$-axis in 3D space! It represents where the system would be 
+        if the fast variables could instantly adjust to equilibrium.
         
-        ### 🧮 Mathematical Framework
+        #### Slow Manifold $C_\varepsilon$
+        When $\varepsilon > 0$ (small), Fenichel's theorem tells us:
+        - $C_0$ perturbs to a nearby invariant manifold $C_\varepsilon$
+        - $C_\varepsilon$ is within distance $O(\varepsilon)$ of $C_0$
+        - Think of it as a "tube" of radius $\sim \varepsilon$ around the $\alpha$-axis
         
-        #### Fast-Slow Decomposition:
-        In slow time $\tau = \varepsilon t$:
+        **Intuition**: The fast variables can't quite keep up with the slowly changing $\alpha$,
+        so they lag slightly behind their equilibrium values.
+        
+        ### 🎯 The Delay Phenomenon
+        
+        Here's what happens during a slow passage:
+        
+        1. **Approach Phase** ($\alpha < 0$):
+        - Origin is stable, so $(x,y) \to (0,0)$ exponentially fast
+        - Solution gets within $O(e^{-k/\varepsilon})$ of $C_\varepsilon$
+        
+        2. **Slow Evolution** ($\alpha$ increases slowly):
+        - Solution follows $C_\varepsilon$ as $\alpha$ grows
+        - $(x,y)$ remain tiny (size $\sim \varepsilon$)
+        
+        3. **Critical Crossing** ($\alpha$ passes through 0):
+        - Origin becomes unstable
+        - But solution doesn't immediately jump away!
+        
+        4. **Delayed Exit** ($0 < \alpha < \alpha_j$):
+        - Solution remains "trapped" near unstable manifold
+        - Finally escapes when $\alpha \approx |\alpha_0|$
+        
+        ### 🧮 Quantifying the Delay
+        
+        #### WKB Method Result
+        Starting from $\alpha_0 < 0$, oscillations begin when:
+        $$\int_{\alpha_0}^{\alpha_j} \text{Re}(\lambda(\alpha)) \, d\alpha = 0$$
+        
+        For the Hopf normal form where $\lambda = \alpha \pm i$:
+        $$\int_{\alpha_0}^{\alpha_j} \alpha \, d\alpha = 0 \implies \alpha_j = |\alpha_0|$$
+        
+        **Key Result**: The delay is symmetric! You travel as far past the bifurcation 
+        as you started before it.
+        
+        #### Time Calculations
+        - Time to reach bifurcation: $t_* = |\alpha_0|/\varepsilon$
+        - Additional delay time: $t_K = |\alpha_0|/\varepsilon$
+        - **Total time to oscillations**: $t_{total} = 2|\alpha_0|/\varepsilon$
+        
+        ### 🧠 The FitzHugh-Nagumo Model
+        
+        This is a simplified model of neural excitation:
         $$
         \begin{align}
-        \varepsilon x' &= \alpha x - y - x(x^2+y^2) \\
-        \varepsilon y' &= x + \alpha y - y(x^2+y^2) \\
-        \alpha' &= 1
+        \dot{v} &= -v(v-a)(v-1) - w + I \\
+        \dot{w} &= b(v - \gamma w)
         \end{align}
         $$
         
-        #### Fenichel's Theorem:
-        For $\varepsilon > 0$ sufficiently small:
-        - The critical manifold $C_0$ persists as a slow manifold $C_\varepsilon$
-        - $C_\varepsilon$ is $O(\varepsilon)$-close to $C_0$
-        - Solutions approach $C_\varepsilon$ exponentially fast for $\alpha < 0$
+        Where:
+        - $v$ = membrane voltage (fast variable)
+        - $w$ = recovery variable (slow variable)
+        - $I$ = applied current (bifurcation parameter)
+        - $a, b, \gamma$ = model parameters
         
-        #### WKB Asymptotic Expansion:
-        The condition for oscillation onset:
-        $$
-        0 = \int_{\alpha_0}^{\alpha_j} \text{Re}(\lambda(\alpha)) \, d\alpha
-        $$
-        For the normal form: $\lambda = \alpha \pm i$, giving $\alpha_j = |\alpha_0|$
+        This model exhibits **two Hopf bifurcations** at $I_-$ and $I_+$:
+        - $I < I_-$: Stable equilibrium (neuron at rest)
+        - $I_- < I < I_+$: Oscillations (neuron firing)
+        - $I > I_+$: Stable equilibrium again
         
-        ### 📊 Physical Interpretation
+        When $I$ varies slowly, the model shows **bursting**: alternating periods of 
+        quiescence and rapid oscillations, with delays at the transitions.
         
-        The delay occurs because:
-        1. The solution approaches the attracting part of $C_0$ exponentially fast
-        2. When $\alpha$ crosses 0, the manifold becomes repelling
-        3. But the solution remains "trapped" near $C_0$ due to the slow dynamics
-        4. Only when $\alpha$ reaches $\alpha_j$ does the repulsion overcome the trapping
+        ### 🔍 Entry-Exit Functions and Complex Time
         
-        ### 🔬 Applications
+        The **entry-exit function** is a sophisticated tool for calculating delays:
         
-        This delay phenomenon is crucial in:
-        - **Neuroscience**: Bursting patterns in neurons (FitzHugh-Nagumo model)
-        - **Climate Science**: Glacial-interglacial transitions
-        - **Engineering**: Delayed instabilities in control systems
+        1. **Complex Phase Function**:
+        $$\Psi(\tau) = \int_{\tau_*}^{\tau} \lambda_1(\alpha^0(s)) \, ds$$
+        where $\tau$ can be complex!
         
-        ### 📖 References
+        2. **Level Curves**: Points with $\text{Re}(\Psi) = \text{constant}$ form curves
+        in the complex $\tau$-plane
         
-        Key references from my thesis:
-        - Neishtadt (1987, 1988): Analytical techniques using complex time
-        - Baer et al. (1989): Asymptotic methods and neural applications
-        - Hayes et al. (2016): Geometric singular perturbation theory
-        - Kuehn (2015): Comprehensive treatment of multiple time scales
+        3. **Key Insight**: The delay time corresponds to following these level curves
+        from negative to positive real $\tau$
+        
+        ### 🌍 Real-World Applications
+        
+        The delay phenomenon appears in many contexts:
+        
+        1. **Neuroscience**: 
+        - Explains delays in neural firing onset
+        - Critical for understanding bursting patterns
+        - See Baer, Erneux & Rinzel (1989) and Su (1993)
+        
+        2. **Climate Dynamics**:
+        - Glacial-interglacial transitions show similar delays
+        - May explain the shift from 41,000 to 100,000 year cycles
+        - See Ashwin & Ditlevsen (2015), Engler et al. (2017)
+        
+        3. **Engineering**:
+        - Delayed instabilities in control systems
+        - Important for predicting system failures
+        
+        ### 📊 Why Does the Delay Happen?
+    
+        **Intuitive Explanation**: 
+        
+        Imagine a ball in a valley that slowly tilts until it becomes a hill:
+        1. Initially, the ball sits at the bottom (stable equilibrium)
+        2. As the valley flattens and becomes a hill, the ball should roll away
+        3. But if the change is slow enough, the ball "doesn't notice" immediately
+        4. It needs the hill to become steep enough before finally rolling away
+        
+        The mathematics shows this happens when the hill's steepness (∼ $\alpha$) 
+        equals how deep the original valley was (∼ $|\alpha_0|$).
+        
+        ### 📖 Key References from My Thesis
+        
+        **Foundational Works:**
+        - **Shishkova (1973)**: First pointed out the existence of delays in dynamical bifurcations
+        - **Neishtadt (1987, 1988)**: Pioneered the use of complex time and analytical methods for calculating delays
+        - **Fenichel (1979)**: Geometric singular perturbation theory, essential for understanding slow manifolds
+        
+        **Applications & Extensions:**
+        - **Baer, Erneux & Rinzel (1989)**: Applied asymptotic techniques to neural models, showing delays in the FitzHugh-Nagumo system
+        - **Su (1993)**: Detailed study of delayed oscillations in the FitzHugh-Nagumo equation
+        - **Hayes et al. (2016)**: Geometric desingularization approach to slow passages
+        
+        **Modern Developments:**
+        - **Kuehn (2015)**: Comprehensive modern treatment of multiple timescale dynamics
+        - **Ashwin & Ditlevsen (2015)**, **Engler et al. (2017)**: Applications to climate dynamics
+        
+        **Classical References:**
+        - **Guckenheimer & Holmes (1990)**: Standard reference for bifurcation theory
+        - **Kuznetsov (2004)**: Applied bifurcation theory
+        
+        **This Work:**
+        - **García (2023)**: "Atravesando lentamente una bifurcación de Hopf" 
+        Undergraduate thesis, Universidad de Cantabria
+        Supervised by Santiago Ibáñez Mesa
         """)
 
     # ----- Interactive Delay Calculator -----
@@ -6171,10 +6264,10 @@ with tabs[4]:
         col1, col2 = st.columns(2)
         with col1:
             alpha_0_calc = st.number_input("Initial α₀ (must be < 0)", 
-                                          value=-1.0, max_value=-0.01, step=0.1)
+                                        value=-1.0, max_value=-0.01, step=0.1)
             eps_calc = st.number_input("Slow passage rate ε", 
-                                      value=0.01, min_value=0.0001, max_value=0.1, 
-                                      step=0.001, format="%.4f")
+                                    value=0.01, min_value=0.0001, max_value=0.1, 
+                                    step=0.001, format="%.4f")
         
         with col2:
             st.write("**Predictions:**")
@@ -6191,22 +6284,27 @@ with tabs[4]:
         st.latex(r"\text{Delay} = \frac{2|\alpha_0|}{\varepsilon} = \frac{" + 
                 f"{2*abs(alpha_0_calc):.2f}" + r"}{" + f"{eps_calc:.4f}" + 
                 r"} = " + f"{tau_delay:.1f}")
+        
+        st.info("""
+        💡 **Interpretation**: Starting from α₀, the system takes time |α₀|/ε to reach 
+        the bifurcation at α = 0, then an additional |α₀|/ε before oscillations begin.
+        This symmetric delay is a universal feature of slow passages through Hopf bifurcations!
+        """)
 
     # ----- Additional Features -----
     st.divider()
-    
+
     # Download data option
     if 'hopf_data' in st.session_state and model == "Normal Form":
         data = st.session_state.hopf_data
-        df = pd.DataFrame({
-            't': data['t'],
-            'x': data['x'],
-            'y': data['y'],
-            'rho': data['rho'],
-            'alpha': data['alpha_t']
-        })
         
-        csv = df.to_csv(index=False)
+        # Create CSV string manually (avoiding pandas dependency issue)
+        csv_lines = ["t,x,y,rho,alpha"]
+        for i in range(len(data['t'])):
+            csv_lines.append(f"{data['t'][i]},{data['x'][i]},{data['y'][i]},{data['rho'][i]},{data['alpha_t'][i]}")
+        
+        csv = '\n'.join(csv_lines)
+        
         st.download_button(
             label="📥 Download simulation data",
             data=csv,
@@ -6220,22 +6318,26 @@ with tabs[4]:
         **Things to try:**
         
         1. **Observe the delay**: With slow passage enabled, notice how oscillations start 
-           well after α crosses 0. The delay increases as you start from more negative α₀.
+        well after α crosses 0. The delay increases as you start from more negative α₀.
         
         2. **Compare with theory**: The WKB prediction α_j = |α₀| is remarkably accurate
-           for the normal form. Check how well it matches the numerical results.
+        for the normal form. Check how well it matches the numerical results.
         
         3. **Effect of ε**: Smaller ε means slower parameter variation and longer delays.
-           But the onset value α_j remains the same!
+        But the onset value α_j remains the same!
         
         4. **Phase portrait colors**: In the phase portrait view, the color represents
-           the current value of α. Watch how the trajectory transitions from spiraling
-           inward (blue, α < 0) to spiraling outward (red, α > 0).
+        the current value of α. Watch how the trajectory transitions from spiraling
+        inward (blue, α < 0) to spiraling outward (red, α > 0).
         
         5. **FitzHugh-Nagumo**: This neuronal model shows bursting behavior when the
-           current slowly varies through the Hopf bifurcation regions.
+        current slowly varies through the Hopf bifurcation regions.
+        
+        6. **Numerical precision**: For very small ε, you may need to increase the
+        simulation time and decrease the time step to accurately capture the delay.
         
         **Mathematical beauty**: The delay phenomenon shows how multiple timescales
         interact in nonlinear systems, creating rich dynamics that can't be predicted
-        from static bifurcation analysis alone.
+        from static bifurcation analysis alone. The fact that α_j = |α₀| emerges from
+        complex mathematical analysis is a beautiful example of hidden symmetry in nature!
         """)
