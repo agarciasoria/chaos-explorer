@@ -6456,7 +6456,7 @@ with tabs[4]:
             - **Bursting patterns**: The delays at both bifurcations create 
             the characteristic bursting patterns seen in many neurons
             
-            ### Connection to Your Thesis
+            ### Connection to Slow Passages
             
             The FitzHugh-Nagumo model perfectly illustrates the slow passage phenomenon:
             
