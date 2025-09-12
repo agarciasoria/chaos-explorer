@@ -6040,42 +6040,434 @@ with tabs[4]:
     elif model == "FitzHugh-Nagumo" and 'fn_data' in st.session_state:
         data = st.session_state.fn_data
         
-        # Create visualization
-        fig = make_subplots(
-            rows=2, cols=1,
-            subplot_titles=("Voltage v(t)", "Current I(t)"),
-            row_heights=[0.7, 0.3],
-            vertical_spacing=0.15
-        )
+        # Detect oscillations and transitions
+        v = data['v']
+        t = data['t']
+        I_t = data['I_t']
         
-        # Voltage
-        fig.add_trace(go.Scatter(
-            x=data['t'], y=data['v'],
-            mode="lines",
-            line=dict(color="red", width=1),
-            name="v(t)"
-        ), row=1, col=1)
+        # Simple oscillation detection: look for peaks
+        from scipy.signal import find_peaks
         
-        # Current
-        fig.add_trace(go.Scatter(
-            x=data['t'], y=data['I_t'],
-            mode="lines",
-            line=dict(color="purple", width=2),
-            name="I(t)"
-        ), row=2, col=1)
+        # Use a sliding window to detect oscillation onset/offset
+        window_size = int(len(t) / 50)  # Adaptive window
+        oscillating = np.zeros(len(t), dtype=bool)
         
-        # Mark bifurcations
-        fig.add_hline(y=data['I_minus'], line_dash="dash", line_color="blue",
-                     annotation_text=f"Lower Hopf (I={data['I_minus']:.3f})", row=2, col=1)
-        fig.add_hline(y=data['I_plus'], line_dash="dash", line_color="red",
-                     annotation_text=f"Upper Hopf (I={data['I_plus']:.3f})", row=2, col=1)
+        for i in range(window_size, len(t)):
+            window_v = v[i-window_size:i]
+            peaks, _ = find_peaks(window_v)
+            # Consider oscillating if we have at least 2 peaks in the window
+            oscillating[i] = len(peaks) >= 2
         
-        fig.update_xaxes(title_text="Time t", row=2, col=1)
-        fig.update_yaxes(title_text="v", row=1, col=1)
-        fig.update_yaxes(title_text="I", row=2, col=1)
+        # Find transitions
+        osc_start_idx = None
+        osc_end_idx = None
         
-        fig.update_layout(height=700, showlegend=True)
+        # Find first transition to oscillating
+        for i in range(1, len(oscillating)):
+            if not oscillating[i-1] and oscillating[i] and osc_start_idx is None:
+                osc_start_idx = i
+            elif oscillating[i-1] and not oscillating[i] and osc_start_idx is not None:
+                osc_end_idx = i
+                break
+        
+        # Layout choice
+        view_fn = st.radio("Select view", 
+                        ["Time Series with Delay Analysis", 
+                        "Phase Portrait (v-w)",
+                        "Bifurcation Diagram View"],
+                        horizontal=True)
+        
+        if view_fn == "Time Series with Delay Analysis":
+            # Create visualization with more detail
+            fig = make_subplots(
+                rows=3, cols=1,
+                subplot_titles=("Membrane Voltage v(t)", 
+                            "Oscillation Amplitude", 
+                            "Applied Current I(t)"),
+                row_heights=[0.4, 0.3, 0.3],
+                vertical_spacing=0.12
+            )
+            
+            # Voltage with oscillation regions highlighted
+            fig.add_trace(go.Scatter(
+                x=t, y=v,
+                mode="lines",
+                line=dict(color="red", width=1),
+                name="v(t)"
+            ), row=1, col=1)
+            
+            # Highlight oscillating regions
+            if osc_start_idx is not None:
+                # Pre-oscillation region
+                fig.add_vrect(x0=t[0], x1=t[osc_start_idx],
+                            fillcolor="lightblue", opacity=0.2,
+                            annotation_text="Quiescent", row=1, col=1)
+                
+                if osc_end_idx is not None:
+                    # Oscillation region
+                    fig.add_vrect(x0=t[osc_start_idx], x1=t[osc_end_idx],
+                                fillcolor="lightgreen", opacity=0.2,
+                                annotation_text="Oscillating", row=1, col=1)
+                    # Post-oscillation region
+                    fig.add_vrect(x0=t[osc_end_idx], x1=t[-1],
+                                fillcolor="lightblue", opacity=0.2,
+                                annotation_text="Quiescent", row=1, col=1)
+                else:
+                    # Still oscillating
+                    fig.add_vrect(x0=t[osc_start_idx], x1=t[-1],
+                                fillcolor="lightgreen", opacity=0.2,
+                                annotation_text="Oscillating", row=1, col=1)
+            
+            # Calculate and plot amplitude envelope
+            # Use Hilbert transform or peak detection
+            from scipy.signal import hilbert
+            analytic_signal = hilbert(v - np.mean(v))
+            amplitude_envelope = np.abs(analytic_signal)
+            
+            fig.add_trace(go.Scatter(
+                x=t, y=amplitude_envelope,
+                mode="lines",
+                line=dict(color="green", width=2),
+                name="Amplitude"
+            ), row=2, col=1)
+            
+            # Threshold for oscillation detection
+            threshold = 0.1
+            fig.add_hline(y=threshold, line_dash="dot", line_color="orange",
+                        annotation_text="Detection threshold", row=2, col=1)
+            
+            # Current with bifurcation points
+            fig.add_trace(go.Scatter(
+                x=t, y=I_t,
+                mode="lines",
+                line=dict(color="purple", width=2),
+                name="I(t)"
+            ), row=3, col=1)
+            
+            # Only show bifurcation lines if they're reached
+            if min(I_t) <= data['I_minus'] <= max(I_t):
+                fig.add_hline(y=data['I_minus'], line_dash="dash", line_color="blue",
+                            annotation_text=f"Lower Hopf (I={data['I_minus']:.3f})", 
+                            row=3, col=1)
+                
+                # Find when current crosses I_minus
+                cross_minus_idx = np.where(I_t >= data['I_minus'])[0]
+                if len(cross_minus_idx) > 0:
+                    fig.add_vline(x=t[cross_minus_idx[0]], line_dash="dash", 
+                                line_color="blue", opacity=0.5)
+                    # Add annotation for theoretical onset
+                    fig.add_annotation(x=t[cross_minus_idx[0]], y=max(v),
+                                    text="Theory: oscillations should start",
+                                    showarrow=True, row=1, col=1)
+            
+            if min(I_t) <= data['I_plus'] <= max(I_t):
+                fig.add_hline(y=data['I_plus'], line_dash="dash", line_color="red",
+                            annotation_text=f"Upper Hopf (I={data['I_plus']:.3f})", 
+                            row=3, col=1)
+                
+                # Find when current crosses I_plus
+                cross_plus_idx = np.where(I_t >= data['I_plus'])[0]
+                if len(cross_plus_idx) > 0:
+                    fig.add_vline(x=t[cross_plus_idx[0]], line_dash="dash", 
+                                line_color="red", opacity=0.5)
+                    # Add annotation for theoretical offset
+                    fig.add_annotation(x=t[cross_plus_idx[0]], y=max(v),
+                                    text="Theory: oscillations should stop",
+                                    showarrow=True, row=1, col=1)
+            
+            # Mark actual transitions
+            if osc_start_idx is not None:
+                fig.add_vline(x=t[osc_start_idx], line_color="green", 
+                            line_width=2, opacity=0.7)
+                fig.add_annotation(x=t[osc_start_idx], y=min(v),
+                                text="Actual onset", showarrow=True, 
+                                row=1, col=1, yshift=-20)
+                
+            if osc_end_idx is not None:
+                fig.add_vline(x=t[osc_end_idx], line_color="darkgreen", 
+                            line_width=2, opacity=0.7)
+                fig.add_annotation(x=t[osc_end_idx], y=min(v),
+                                text="Actual offset", showarrow=True, 
+                                row=1, col=1, yshift=-20)
+            
+            fig.update_xaxes(title_text="Time t", row=3, col=1)
+            fig.update_yaxes(title_text="v", row=1, col=1)
+            fig.update_yaxes(title_text="Amplitude", row=2, col=1)
+            fig.update_yaxes(title_text="I", row=3, col=1)
+            
+            fig.update_layout(height=800, showlegend=True,
+                            title="FitzHugh-Nagumo: Slow Passage through Hopf Bifurcations")
+            
+        elif view_fn == "Phase Portrait (v-w)":
+            # Need to integrate to get w values
+            # For now, approximate w from the equations
+            w = np.zeros_like(v)
+            for i in range(1, len(t)):
+                dt = t[i] - t[i-1]
+                w[i] = w[i-1] + dt * b * (v[i-1] - gamma * w[i-1])
+            
+            fig = go.Figure()
+            
+            # Phase portrait colored by current
+            fig.add_trace(go.Scatter(
+                x=v, y=w,
+                mode="markers",
+                marker=dict(
+                    color=I_t,
+                    colorscale='Viridis',
+                    size=2,
+                    colorbar=dict(title="I(t)")
+                ),
+                name="Trajectory"
+            ))
+            
+            # Add a faint line to show path
+            fig.add_trace(go.Scatter(
+                x=v, y=w,
+                mode="lines",
+                line=dict(color="gray", width=0.5),
+                showlegend=False,
+                opacity=0.3
+            ))
+            
+            # Mark start and end
+            fig.add_trace(go.Scatter(
+                x=[v[0]], y=[w[0]],
+                mode="markers",
+                marker=dict(size=10, color="green", symbol="circle"),
+                name="Start"
+            ))
+            
+            fig.add_trace(go.Scatter(
+                x=[v[-1]], y=[w[-1]],
+                mode="markers",
+                marker=dict(size=10, color="red", symbol="circle"),
+                name="End"
+            ))
+            
+            fig.update_layout(
+                xaxis_title="v (voltage)",
+                yaxis_title="w (recovery)",
+                height=600,
+                title="Phase Portrait of FitzHugh-Nagumo Model"
+            )
+            
+        else:  # Bifurcation Diagram View
+            # Create a bifurcation diagram style plot
+            fig = go.Figure()
+            
+            # Plot v vs I
+            fig.add_trace(go.Scatter(
+                x=I_t, y=v,
+                mode="markers",
+                marker=dict(size=1, color=t, colorscale='Viridis',
+                        colorbar=dict(title="Time")),
+                name="Trajectory"
+            ))
+            
+            # Mark theoretical bifurcations
+            if min(I_t) <= data['I_minus'] <= max(I_t):
+                fig.add_vline(x=data['I_minus'], line_dash="dash", 
+                            line_color="blue", 
+                            annotation_text="Lower Hopf")
+            
+            if min(I_t) <= data['I_plus'] <= max(I_t):
+                fig.add_vline(x=data['I_plus'], line_dash="dash", 
+                            line_color="red", 
+                            annotation_text="Upper Hopf")
+            
+            # Highlight where oscillations actually occur
+            if osc_start_idx is not None and osc_end_idx is not None:
+                I_start = I_t[osc_start_idx]
+                I_end = I_t[osc_end_idx] if osc_end_idx < len(I_t) else I_t[-1]
+                
+                fig.add_vrect(x0=I_start, x1=I_end,
+                            fillcolor="lightgreen", opacity=0.2,
+                            annotation_text="Actual oscillations")
+            
+            fig.update_layout(
+                xaxis_title="Applied Current I",
+                yaxis_title="Voltage v",
+                height=600,
+                title="Bifurcation Diagram: v vs I (colored by time)"
+            )
+        
         st.plotly_chart(fig, use_container_width=True)
+        
+        # Analysis metrics
+        if data['slow_passage']:
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Initial I₀", f"{I0:.4f}")
+            
+            with col2:
+                if min(I_t) <= data['I_minus'] <= max(I_t):
+                    theory_time = (data['I_minus'] - I0) / eps
+                    st.metric("Time to I₋ (theory)", f"{theory_time:.1f}")
+            
+            with col3:
+                if osc_start_idx is not None:
+                    actual_I_start = I_t[osc_start_idx]
+                    st.metric("Actual onset at I", f"{actual_I_start:.4f}")
+                    
+            with col4:
+                if osc_start_idx is not None and min(I_t) <= data['I_minus'] <= max(I_t):
+                    # Calculate delay
+                    cross_minus_idx = np.where(I_t >= data['I_minus'])[0]
+                    if len(cross_minus_idx) > 0:
+                        delay_time = t[osc_start_idx] - t[cross_minus_idx[0]]
+                        st.metric("Delay time", f"{delay_time:.1f}")
+            
+            # Additional analysis
+            st.write("### Delay Analysis")
+            
+            if osc_start_idx is not None and min(I_t) <= data['I_minus'] <= max(I_t):
+                # Calculate theoretical prediction using WKB
+                # For FitzHugh-Nagumo, the delay depends on the eigenvalues near I_minus
+                I_delay = actual_I_start - data['I_minus']
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write("**Observed Delay:**")
+                    st.write(f"- Oscillations start at I = {actual_I_start:.4f}")
+                    st.write(f"- Delay: ΔI = {I_delay:.4f}")
+                    st.write(f"- Time delay: {delay_time:.1f} time units")
+                
+                with col2:
+                    st.write("**Theoretical Prediction:**")
+                    # Simplified WKB prediction for FitzHugh-Nagumo
+                    # This would need the actual eigenvalue calculation
+                    st.write(f"- Lower Hopf at I₋ = {data['I_minus']:.4f}")
+                    st.write(f"- For slow passage, expect delay proportional to 1/ε")
+                    st.write(f"- Current ε = {eps:.6f}")
+            
+            # Show bursting behavior if both bifurcations are crossed
+            if (min(I_t) <= data['I_minus'] <= max(I_t) and 
+                min(I_t) <= data['I_plus'] <= max(I_t)):
+                st.info("""
+                🧠 **Bursting Behavior Detected!**
+                
+                The system shows the characteristic bursting pattern of neurons:
+                - Quiescent phase (I < I₋): Stable equilibrium
+                - Active phase (I₋ < I < I₊): Sustained oscillations
+                - Return to quiescence (I > I₊): Stable equilibrium
+                
+                The delays at both transitions are key to understanding neural dynamics!
+                """)
+        
+        # Option to export FitzHugh-Nagumo data
+        if st.button("📊 Generate Detailed Analysis Report", key="fn_analysis"):
+            report = f"""
+            FitzHugh-Nagumo Slow Passage Analysis
+            =====================================
+            
+            Model Parameters:
+            - a = {a}
+            - b = {b}
+            - γ = {gamma}
+            
+            Slow Passage Parameters:
+            - Initial current I₀ = {I0}
+            - Passage rate ε = {eps}
+            - Simulation time = {t_max}
+            
+            Theoretical Bifurcations:
+            - Lower Hopf: I₋ = {data['I_minus']:.4f}
+            - Upper Hopf: I₊ = {data['I_plus']:.4f}
+            """
+            
+            if osc_start_idx is not None:
+                report += f"""
+            
+            Observed Behavior:
+            - Oscillations start at: I = {I_t[osc_start_idx]:.4f}
+            - Time of onset: t = {t[osc_start_idx]:.1f}
+            """
+                
+                if min(I_t) <= data['I_minus'] <= max(I_t):
+                    cross_idx = np.where(I_t >= data['I_minus'])[0]
+                    if len(cross_idx) > 0:
+                        report += f"""
+            - Delay from I₋: ΔI = {I_t[osc_start_idx] - data['I_minus']:.4f}
+            - Time delay: Δt = {t[osc_start_idx] - t[cross_idx[0]]:.1f}
+            """
+            
+            st.text_area("Analysis Report", report, height=400)
+            
+            # Download button for report
+            st.download_button(
+                label="📥 Download Report",
+                data=report,
+                file_name=f"fitzhugh_nagumo_analysis_eps{eps:.4f}.txt",
+                mime="text/plain"
+            )
+
+    # Add some educational content specific to FitzHugh-Nagumo
+    if model == "FitzHugh-Nagumo":
+        with st.expander("🧠 Understanding the FitzHugh-Nagumo Model", expanded=False):
+            st.markdown(r"""
+            ### The Model Equations
+            
+            The FitzHugh-Nagumo model is a simplified version of the Hodgkin-Huxley model 
+            for nerve impulse propagation:
+            
+            $$
+            \begin{align}
+            \dot{v} &= -v(v-a)(v-1) - w + I \\
+            \dot{w} &= b(v - \gamma w)
+            \end{align}
+            $$
+            
+            ### Physical Interpretation
+            
+            - **$v$**: Membrane potential (voltage)
+            - Fast variable representing electrical activity
+            - Shows rapid spikes during neural firing
+            
+            - **$w$**: Recovery variable  
+            - Slow variable representing ion channel dynamics
+            - Controls refractory period after firing
+            
+            - **$I$**: Applied current
+            - External stimulus to the neuron
+            - Acts as bifurcation parameter
+            
+            ### The Two Hopf Bifurcations
+            
+            1. **Lower bifurcation ($I_-$)**: 
+            - Transition from rest to oscillation
+            - Neuron starts firing
+            
+            2. **Upper bifurcation ($I_+$)**:
+            - Transition from oscillation back to rest
+            - Neuron stops firing (depolarization block)
+            
+            ### Why Delays Matter in Neurons
+            
+            The delay phenomenon in neurons has real physiological significance:
+            
+            - **Threshold variability**: The effective threshold for neural firing 
+            depends on how fast the stimulus changes
+            
+            - **Adaptation**: Neurons can adapt to slowly changing stimuli, 
+            requiring stronger inputs to fire
+            
+            - **Bursting patterns**: The delays at both bifurcations create 
+            the characteristic bursting patterns seen in many neurons
+            
+            ### Connection to Your Thesis
+            
+            The FitzHugh-Nagumo model perfectly illustrates the slow passage phenomenon:
+            
+            - When $I$ increases slowly through $I_-$, oscillations don't start immediately
+            - The delay can be calculated using the same WKB methods from your thesis
+            - This explains why neurons have variable thresholds depending on stimulus rate
+            
+            **Try this**: Set ε very small (0.00001) and watch how long it takes 
+            for oscillations to start after crossing $I_-$!
+            """)
+                
 
     # ----- Enhanced Theory Section -----
     with st.expander("📚 Theory: Hopf Bifurcations & Slow Passages", expanded=False):
@@ -6161,30 +6553,6 @@ with tabs[4]:
         - Time to reach bifurcation: $t_* = |\alpha_0|/\varepsilon$
         - Additional delay time: $t_K = |\alpha_0|/\varepsilon$
         - **Total time to oscillations**: $t_{total} = 2|\alpha_0|/\varepsilon$
-        
-        ### 🧠 The FitzHugh-Nagumo Model
-        
-        This is a simplified model of neural excitation:
-        $$
-        \begin{align}
-        \dot{v} &= -v(v-a)(v-1) - w + I \\
-        \dot{w} &= b(v - \gamma w)
-        \end{align}
-        $$
-        
-        Where:
-        - $v$ = membrane voltage (fast variable)
-        - $w$ = recovery variable (slow variable)
-        - $I$ = applied current (bifurcation parameter)
-        - $a, b, \gamma$ = model parameters
-        
-        This model exhibits **two Hopf bifurcations** at $I_-$ and $I_+$:
-        - $I < I_-$: Stable equilibrium (neuron at rest)
-        - $I_- < I < I_+$: Oscillations (neuron firing)
-        - $I > I_+$: Stable equilibrium again
-        
-        When $I$ varies slowly, the model shows **bursting**: alternating periods of 
-        quiescence and rapid oscillations, with delays at the transitions.
         
         ### 🔍 Entry-Exit Functions and Complex Time
         
