@@ -5621,7 +5621,7 @@ with tabs[4]:
             alpha = st.slider("α (bifurcation parameter)", -2.0, 2.0, -0.5, 0.01)
             slow_passage = st.checkbox("Enable slow passage (α(t) varies slowly)", True)
         with col2:
-            eps = st.slider("ε (slow passage rate)", 0.001, 0.1, 0.01, 0.001, 
+            eps = st.slider("ε (slow passage rate)", 0.001, 0.06, 0.001, 0.001, 
                            disabled=not slow_passage,
                            help="Smaller ε means slower parameter variation and longer delay")
             t_max = st.slider("Simulation time", 10.0, 200.0, 100.0, 5.0)
