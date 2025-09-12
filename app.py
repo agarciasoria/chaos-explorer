@@ -6253,7 +6253,7 @@ with tabs[4]:
         
         **This Work:**
         - **García (2023)**: "Atravesando lentamente una bifurcación de Hopf" 
-        Undergraduate thesis, Universidad de Oviedo
+        Undergraduate thesis, Universidad de Oviedo,
         Supervised by Santiago Ibáñez Mesa
         """)
 
