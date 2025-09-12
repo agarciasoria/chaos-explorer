@@ -88,11 +88,140 @@ def analyze_duffing_bifurcations(gamma_vals, x_vals, delta, alpha, beta, omega):
 
 
 # ---------- Page setup ----------
-st.set_page_config(page_title="Chaos & Nonlinear Dynamics Explorer", layout="wide")
+st.set_page_config(
+    page_title="Chaos & Nonlinear Dynamics Explorer", 
+    layout="wide",
+    page_icon="🌀",
+    initial_sidebar_state="expanded"
+)
 
-st.sidebar.title("Chaos & Nonlinear Dynamics Explorer")
-st.sidebar.info("Author: Alejandro García Soria")
+# ---------- Header and Introduction ----------
+st.title("🌀 Chaos & Nonlinear Dynamics Explorer")
+st.markdown("---")
 
+# Create columns for a nice layout
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    st.markdown("""
+    ### Welcome to an Interactive Journey through Chaos Theory!
+    
+    This application provides **interactive visualizations** of fundamental concepts in 
+    nonlinear dynamics and chaos theory. Through hands-on exploration, you'll discover how 
+    simple mathematical rules can generate incredibly complex and beautiful behaviors.
+    
+    **What you'll explore:**
+    - 🏋️ **Double Pendulum**: Experience sensitive dependence on initial conditions
+    - 🌀 **Lorenz Attractor**: The butterfly effect in action
+    - 🌿 **Bifurcation Diagrams**: How systems transition from order to chaos
+    - 📈 **Lyapunov Exponents**: Quantifying chaos mathematically
+    - ✨ **Hopf Explorer**: Advanced dynamics of oscillation birth through bifurcations
+    
+    Each visualization is designed to be **interactive and educational**, allowing you to 
+    adjust parameters and immediately see how the system responds. No advanced mathematics 
+    knowledge required — just curiosity!
+    """)
+
+with col2:
+    st.info("""
+    **💡 Featured Section**
+    
+    The **Hopf Explorer** represents the culmination 
+    of my undergraduate thesis research:
+    
+    *"Atravesando lentamente una bifurcación de Hopf"*
+    (Slowly Crossing a Hopf Bifurcation)
+    
+    This section explores the fascinating delay 
+    phenomenon when systems slowly transition 
+    through critical points, with applications 
+    in neuroscience and climate dynamics.
+    """)
+
+# Add an expander for more details
+with st.expander("📖 About This Project", expanded=False):
+    st.markdown("""
+    ### Purpose & Motivation
+    
+    Chaos theory and nonlinear dynamics are fundamental to understanding complex systems 
+    in nature, from weather patterns to neural activity. However, these concepts can be 
+    challenging to grasp through equations alone. This application bridges that gap by 
+    providing **real-time, interactive visualizations** that bring these mathematical 
+    concepts to life.
+    
+    ### Educational Approach
+    
+    Each module is designed with education in mind:
+    - **Intuitive controls** to explore parameter space
+    - **Real-time visualization** of system dynamics
+    - **Theoretical background** sections explaining the mathematics
+    - **Practical insights** connecting theory to real-world phenomena
+    
+    ### Technical Implementation
+    
+    Built with Python using:
+    - **Streamlit** for the interactive web interface
+    - **NumPy & SciPy** for numerical computations
+    - **Plotly** for responsive, interactive plots
+    - **Scientific computing** techniques for accurate simulations
+    
+    ### About the Hopf Explorer
+    
+    The Hopf Explorer section is particularly special, as it implements research from my 
+    undergraduate thesis in Mathematics at Universidad de Cantabria (2023), supervised by 
+    Prof. Santiago Ibáñez Mesa. This work studied:
+    
+    - **Slow passage effects** through Hopf bifurcations
+    - **Delay phenomena** in dynamical systems
+    - **Applications** to neuronal dynamics and climate systems
+    - **WKB asymptotic methods** for quantifying delays
+    
+    The mathematical rigor behind this section makes it a unique educational tool for 
+    understanding advanced concepts in bifurcation theory.
+    """)
+
+st.markdown("---")
+
+# ---------- Sidebar ----------
+st.sidebar.title("🌀 Chaos Explorer")
+
+# Author info with more detail
+with st.sidebar.expander("👤 About the Author", expanded=True):
+    st.markdown("""
+    **Alejandro García Soria**
+    
+    Mathematics Graduate  
+    Universidad de Cantabria
+    
+    This project combines my passion for:
+    - 🔬 Mathematical modeling
+    - 💻 Scientific computing
+    - 🎓 Education & visualization
+    - 🧮 Nonlinear dynamics
+    
+    Special thanks to Prof. Santiago 
+    Ibáñez Mesa for thesis supervision.
+    """)
+
+# Navigation helper
+st.sidebar.markdown("### 🧭 Navigation Guide")
+st.sidebar.markdown("""
+- **New to chaos?** Start with the Double Pendulum
+- **Want mathematics?** Try Lyapunov Exponents
+- **Advanced topics?** Explore the Hopf section
+""")
+
+# Quick tips
+with st.sidebar.expander("💡 Quick Tips"):
+    st.markdown("""
+    - **Interact**: Click and drag on plots
+    - **Zoom**: Use mouse wheel on plots
+    - **Reset**: Double-click plots to reset view
+    - **Export**: Use camera icon to save plots
+    - **Learn**: Check theory sections in each tab
+    """)
+
+# ---------- Main content tabs ----------
 tabs = st.tabs([
     "🏋️ Double Pendulum",
     "🌀 Lorenz Attractor",
