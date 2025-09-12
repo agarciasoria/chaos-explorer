@@ -5633,29 +5633,156 @@ with tabs[4]:
 
     # ----- Simulation -----
     generate_hopf = st.button("▶️ Run Simulation", type="primary")
+    
+    # Store simulation results in session state
     if generate_hopf:
         with st.spinner("Simulating Hopf bifurcation..."):
             t, x, y = integrate_hopf(x0, y0, alpha, t_max, dt, slow_passage, eps)
             rho = np.sqrt(x**2 + y**2)
+            
+            # Store in session state
+            st.session_state.hopf_data = {
+                't': t,
+                'x': x,
+                'y': y,
+                'rho': rho,
+                'alpha': alpha,
+                'slow_passage': slow_passage,
+                'eps': eps
+            }
 
+    # Check if we have data to display
+    if 'hopf_data' in st.session_state:
         # Layout choice
         view = st.radio("Select view",
                         ["Phase Portrait (x-y)", "Time Evolution (x vs t)", "Radius ρ(t)"],
                         horizontal=True)
 
+        # Retrieve data from session state
+        data = st.session_state.hopf_data
+        t = data['t']
+        x = data['x']
+        y = data['y']
+        rho = data['rho']
+        
         fig = go.Figure()
         if view == "Phase Portrait (x-y)":
-            fig.add_trace(go.Scatter(x=x, y=y, mode="lines", line=dict(color="blue")))
-            fig.update_layout(xaxis_title="x", yaxis_title="y", height=600)
+            # Add trajectory
+            fig.add_trace(go.Scatter(
+                x=x, y=y, 
+                mode="lines", 
+                line=dict(color="blue", width=2),
+                name="Trajectory"
+            ))
+            
+            # Add starting point
+            fig.add_trace(go.Scatter(
+                x=[x[0]], y=[y[0]], 
+                mode="markers", 
+                marker=dict(size=10, color="green"),
+                name="Start"
+            ))
+            
+            # Add ending point
+            fig.add_trace(go.Scatter(
+                x=[x[-1]], y=[y[-1]], 
+                mode="markers", 
+                marker=dict(size=10, color="red"),
+                name="End"
+            ))
+            
+            # Add fixed point
+            fig.add_trace(go.Scatter(
+                x=[0], y=[0], 
+                mode="markers", 
+                marker=dict(size=12, color="black", symbol="x"),
+                name="Fixed Point"
+            ))
+            
+            fig.update_layout(
+                xaxis_title="x", 
+                yaxis_title="y", 
+                height=600,
+                showlegend=True,
+                xaxis=dict(scaleanchor="y", scaleratio=1)  # Equal aspect ratio
+            )
+            
         elif view == "Time Evolution (x vs t)":
-            fig.add_trace(go.Scatter(x=t, y=x, mode="lines", line=dict(color="red")))
-            fig.update_layout(xaxis_title="t", yaxis_title="x(t)", height=600)
+            fig.add_trace(go.Scatter(
+                x=t, y=x, 
+                mode="lines", 
+                line=dict(color="red", width=2),
+                name="x(t)"
+            ))
+            
+            # Add y(t) as well for comparison
+            fig.add_trace(go.Scatter(
+                x=t, y=y, 
+                mode="lines", 
+                line=dict(color="blue", width=2, dash="dash"),
+                name="y(t)"
+            ))
+            
+            # Add zero line
+            fig.add_hline(y=0, line_dash="dot", line_color="gray", opacity=0.5)
+            
+            fig.update_layout(
+                xaxis_title="Time t", 
+                yaxis_title="x(t), y(t)", 
+                height=600,
+                showlegend=True
+            )
+            
         else:  # Radius
-            fig.add_trace(go.Scatter(x=t, y=rho, mode="lines", line=dict(color="green")))
-            fig.update_layout(xaxis_title="t", yaxis_title="ρ(t) = √(x²+y²)", height=600)
+            fig.add_trace(go.Scatter(
+                x=t, y=rho, 
+                mode="lines", 
+                line=dict(color="green", width=2),
+                name="ρ(t)"
+            ))
+            
+            # Add theoretical radius for static case
+            if not data['slow_passage'] and data['alpha'] > 0:
+                theoretical_radius = np.sqrt(data['alpha'])
+                fig.add_hline(
+                    y=theoretical_radius, 
+                    line_dash="dash", 
+                    line_color="red", 
+                    opacity=0.7,
+                    annotation_text=f"√α = {theoretical_radius:.3f}"
+                )
+            
+            # Add zero line
+            fig.add_hline(y=0, line_dash="dot", line_color="gray", opacity=0.5)
+            
+            fig.update_layout(
+                xaxis_title="Time t", 
+                yaxis_title="ρ(t) = √(x²+y²)", 
+                height=600,
+                showlegend=True
+            )
 
+        # Add title with current parameters
+        title_text = f"Hopf Bifurcation: α = {data['alpha']:.3f}"
+        if data['slow_passage']:
+            title_text += f" (Slow passage: ε = {data['eps']:.3f})"
+        fig.update_layout(title=title_text)
+        
         st.plotly_chart(fig, use_container_width=True)
-
+        
+        # Add analysis metrics
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Final radius", f"{rho[-1]:.4f}")
+        with col2:
+            if data['alpha'] > 0:
+                st.metric("Expected radius", f"{np.sqrt(data['alpha']):.4f}")
+            else:
+                st.metric("Expected radius", "0 (stable)")
+        with col3:
+            max_rho = np.max(rho)
+            st.metric("Max radius", f"{max_rho:.4f}")
+        
     else:
         st.info("👆 Adjust parameters and click **Run Simulation** to explore Hopf bifurcations")
 
@@ -5691,4 +5818,3 @@ with tabs[4]:
         - Enable *slow passage* and observe how oscillations start later than expected.
         - Compare time series $x(t)$ with the radius $\rho(t)$ to clearly see the onset of periodicity.
         """)
-
