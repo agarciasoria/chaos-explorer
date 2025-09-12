@@ -190,8 +190,8 @@ with st.sidebar.expander("👤 About the Author", expanded=True):
     st.markdown("""
     **Alejandro García Soria**
     
-    Mathematics Graduate  
-    Universidad de Cantabria
+    Mathematics and physics Graduate  
+    Universidad de Oviedo
     
     This project combines my passion for:
     - 🔬 Mathematical modeling
