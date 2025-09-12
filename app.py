@@ -2,7 +2,7 @@
 # ============================================
 # Chaos & Nonlinear Dynamics Explorer (Lorenz tab demo)
 # ============================================
-
+import pandas as pd 
 import io
 import numpy as np
 import streamlit as st
@@ -5593,228 +5593,632 @@ with tabs[3]:  # Lyapunov Exponents tab
 # TAB 5: HOPF EXPLORER
 # ============================================
 with tabs[4]:
-    st.header("Hopf Explorer")
-    st.write("Visualize the birth of oscillations through a Hopf bifurcation — "
-             "inspired by my undergraduate thesis on slow passages through Hopf bifurcations.")
-
-    # ----- Controls -----
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        alpha = st.slider("α (bifurcation parameter)", -1.0, 2.0, 0.0, 0.01)
-        slow_passage = st.checkbox("Enable slow passage (α(t) varies slowly)", False)
-    with col2:
-        eps = st.slider("ε (rate of slow passage)", 0.001, 0.1, 0.01, 0.001, disabled=not slow_passage)
-        t_max = st.slider("Simulation time", 10.0, 100.0, 50.0, 1.0)
-    with col3:
-        dt = st.slider("Time step (Δt)", 0.001, 0.05, 0.01, 0.001)
-        x0 = st.slider("Initial x₀", -1.0, 1.0, 0.1, 0.05)
-        y0 = st.slider("Initial y₀", -1.0, 1.0, 0.0, 0.05)
-
-    # ----- Define system -----
-    def hopf_system(t, state, alpha, slow_passage=False, eps=0.01):
-        x, y = state
-        a = alpha + eps*t if slow_passage else alpha
-        dxdt = a*x - y - x*(x**2 + y**2)
-        dydt = x + a*y - y*(x**2 + y**2)
-        return [dxdt, dydt]
-
-    def integrate_hopf(x0, y0, alpha, t_max, dt, slow_passage=False, eps=0.01):
-        t_eval = np.arange(0, t_max, dt)
-        sol = solve_ivp(
-            hopf_system,
-            [0, t_max],
-            [x0, y0],
-            t_eval=t_eval,
-            args=(alpha, slow_passage, eps),
-            rtol=1e-8,
-            atol=1e-10
-        )
-        return sol.t, sol.y[0], sol.y[1]
-
-    # ----- Simulation -----
-    generate_hopf = st.button("▶️ Run Simulation", type="primary")
+    st.header("Hopf Explorer: Slow Passages & Delayed Oscillations")
+    st.write("Explore the birth of oscillations through Hopf bifurcations and the delay phenomenon — "
+             "based on my undergraduate thesis 'Atravesando lentamente una bifurcación de Hopf'.")
     
-    # Store simulation results in session state
-    if generate_hopf:
-        with st.spinner("Simulating Hopf bifurcation..."):
-            t, x, y = integrate_hopf(x0, y0, alpha, t_max, dt, slow_passage, eps)
-            rho = np.sqrt(x**2 + y**2)
-            
-            # Store in session state
-            st.session_state.hopf_data = {
-                't': t,
-                'x': x,
-                'y': y,
-                'rho': rho,
-                'alpha': alpha,
-                'slow_passage': slow_passage,
-                'eps': eps
-            }
+    # Add a brief introduction
+    with st.expander("🎓 Thesis Overview", expanded=False):
+        st.markdown(r"""
+        My thesis studied how oscillations emerge when a parameter slowly crosses a Hopf bifurcation point.
+        The key finding: **oscillations don't start immediately** at the bifurcation point (α = 0), 
+        but are **delayed** until α reaches a positive value that can be predicted theoretically.
+        
+        This delay phenomenon has important applications in:
+        - **Neuroscience**: Understanding bursting patterns in neural signals
+        - **Climate Science**: Explaining glacial-interglacial transitions
+        """)
 
-    # Check if we have data to display
-    if 'hopf_data' in st.session_state:
+    # ----- Model Selection -----
+    model = st.selectbox("Select Model", 
+                        ["Normal Form", "FitzHugh-Nagumo"],
+                        help="Choose between the canonical normal form or the neuronal model")
+    
+    if model == "Normal Form":
+        # ----- Normal Form Controls -----
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            alpha = st.slider("α (bifurcation parameter)", -2.0, 2.0, -0.5, 0.01)
+            slow_passage = st.checkbox("Enable slow passage (α(t) varies slowly)", True)
+        with col2:
+            eps = st.slider("ε (slow passage rate)", 0.001, 0.1, 0.01, 0.001, 
+                           disabled=not slow_passage,
+                           help="Smaller ε means slower parameter variation and longer delay")
+            t_max = st.slider("Simulation time", 10.0, 200.0, 100.0, 5.0)
+        with col3:
+            dt = st.slider("Time step (Δt)", 0.001, 0.05, 0.01, 0.001)
+            x0 = st.slider("Initial x₀", -0.5, 0.5, 0.1, 0.05)
+            y0 = st.slider("Initial y₀", -0.5, 0.5, 0.0, 0.05)
+
+        # Show theoretical prediction
+        if slow_passage and alpha < 0:
+            st.info(f"💡 **Theoretical prediction**: Oscillations will start when α ≈ {abs(alpha):.3f} "
+                   f"(WKB method: α_j = |α₀|)")
+
+        # ----- Define system -----
+        def hopf_system(t, state, alpha_0, slow_passage=False, eps=0.01):
+            x, y = state
+            a = alpha_0 + eps*t if slow_passage else alpha_0
+            dxdt = a*x - y - x*(x**2 + y**2)
+            dydt = x + a*y - y*(x**2 + y**2)
+            return [dxdt, dydt]
+
+        def integrate_hopf(x0, y0, alpha_0, t_max, dt, slow_passage=False, eps=0.01):
+            t_eval = np.arange(0, t_max, dt)
+            sol = solve_ivp(
+                hopf_system,
+                [0, t_max],
+                [x0, y0],
+                t_eval=t_eval,
+                args=(alpha_0, slow_passage, eps),
+                rtol=1e-10,  # Higher precision for slow passage
+                atol=1e-12
+            )
+            alpha_t = alpha_0 + eps*t_eval if slow_passage else np.full_like(t_eval, alpha_0)
+            return sol.t, sol.y[0], sol.y[1], alpha_t
+
+        # ----- Simulation -----
+        if st.button("▶️ Run Simulation", type="primary", key="run_hopf"):
+            with st.spinner("Simulating Hopf bifurcation..."):
+                t, x, y, alpha_t = integrate_hopf(x0, y0, alpha, t_max, dt, slow_passage, eps)
+                rho = np.sqrt(x**2 + y**2)
+                
+                # Detect oscillation onset
+                threshold = 0.05
+                osc_indices = np.where(rho > threshold)[0]
+                if len(osc_indices) > 0 and slow_passage:
+                    osc_start_idx = osc_indices[0]
+                    osc_start_time = t[osc_start_idx]
+                    osc_start_alpha = alpha_t[osc_start_idx]
+                    
+                    # Time when α = 0
+                    zero_crossing_idx = np.where(alpha_t >= 0)[0]
+                    zero_crossing_time = t[zero_crossing_idx[0]] if len(zero_crossing_idx) > 0 else None
+                else:
+                    osc_start_time = None
+                    osc_start_alpha = None
+                    zero_crossing_time = None
+                
+                # Store in session state
+                st.session_state.hopf_data = {
+                    't': t,
+                    'x': x,
+                    'y': y,
+                    'rho': rho,
+                    'alpha': alpha,
+                    'alpha_t': alpha_t,
+                    'slow_passage': slow_passage,
+                    'eps': eps,
+                    'osc_start_time': osc_start_time,
+                    'osc_start_alpha': osc_start_alpha,
+                    'zero_crossing_time': zero_crossing_time
+                }
+
+    else:  # FitzHugh-Nagumo Model
+        st.write("🧠 **FitzHugh-Nagumo Model**: A neuronal model exhibiting Hopf bifurcations")
+        
+        # Parameters
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            a = st.slider("a", 0.0, 0.5, 0.2, 0.01)
+            b = st.slider("b", 0.01, 0.1, 0.05, 0.01)
+            gamma = st.slider("γ", 0.1, 0.8, 0.4, 0.05)
+        with col2:
+            I0 = st.slider("I₀ (initial current)", -0.5, 1.5, -0.2, 0.05)
+            slow_passage = st.checkbox("Enable slow current variation", True)
+            eps = st.slider("ε (rate)", 0.00001, 0.001, 0.00005, 0.00001, 
+                           disabled=not slow_passage)
+        with col3:
+            t_max = st.slider("Simulation time", 1000.0, 10000.0, 5000.0, 500.0)
+            v0 = st.slider("Initial v₀", -1.0, 1.0, 0.1, 0.05)
+            w0 = st.slider("Initial w₀", -1.0, 1.0, 0.0, 0.05)
+
+        # Calculate bifurcation points
+        # These would need to be computed based on the parameters
+        # For simplicity, using approximate values
+        I_minus = 0.273  # Lower Hopf bifurcation
+        I_plus = 1.631   # Upper Hopf bifurcation
+        
+        st.info(f"Hopf bifurcations occur at I ≈ {I_minus:.3f} and I ≈ {I_plus:.3f}")
+
+        # FitzHugh-Nagumo system
+        def fitzhugh_nagumo(t, state, a, b, gamma, I0, slow_passage=False, eps=0.00005):
+            v, w = state
+            I = I0 + eps*t if slow_passage else I0
+            f_v = v * (v - a) * (v - 1)
+            dvdt = -f_v - w + I
+            dwdt = b * (v - gamma * w)
+            return [dvdt, dwdt]
+
+        # Integration function
+        def integrate_fn(v0, w0, a, b, gamma, I0, t_max, slow_passage=False, eps=0.00005):
+            dt = 0.1
+            t_eval = np.arange(0, t_max, dt)
+            sol = solve_ivp(
+                fitzhugh_nagumo,
+                [0, t_max],
+                [v0, w0],
+                t_eval=t_eval,
+                args=(a, b, gamma, I0, slow_passage, eps),
+                rtol=1e-10,
+                atol=1e-12
+            )
+            I_t = I0 + eps*t_eval if slow_passage else np.full_like(t_eval, I0)
+            return sol.t, sol.y[0], sol.y[1], I_t
+
+        if st.button("▶️ Run FitzHugh-Nagumo", type="primary", key="run_fn"):
+            with st.spinner("Simulating FitzHugh-Nagumo model..."):
+                t, v, w, I_t = integrate_fn(v0, w0, a, b, gamma, I0, t_max, slow_passage, eps)
+                
+                st.session_state.fn_data = {
+                    't': t,
+                    'v': v,
+                    'w': w,
+                    'I_t': I_t,
+                    'I_minus': I_minus,
+                    'I_plus': I_plus,
+                    'slow_passage': slow_passage
+                }
+
+    # ----- Visualization for Normal Form -----
+    if model == "Normal Form" and 'hopf_data' in st.session_state:
         # Layout choice
         view = st.radio("Select view",
-                        ["Phase Portrait (x-y)", "Time Evolution (x vs t)", "Radius ρ(t)"],
+                        ["Phase Portrait & Parameter Evolution", 
+                         "Time Series with Delay Analysis",
+                         "Radius Evolution & Theoretical Comparison",
+                         "3D Trajectory in Extended Phase Space"],
                         horizontal=True)
 
-        # Retrieve data from session state
+        # Retrieve data
         data = st.session_state.hopf_data
         t = data['t']
         x = data['x']
         y = data['y']
         rho = data['rho']
+        alpha_t = data['alpha_t']
         
-        fig = go.Figure()
-        if view == "Phase Portrait (x-y)":
-            # Add trajectory
+        if view == "Phase Portrait & Parameter Evolution":
+            # Create subplots
+            fig = make_subplots(
+                rows=2, cols=1,
+                subplot_titles=("Phase Portrait (x-y)", "Parameter Evolution α(t)"),
+                row_heights=[0.7, 0.3],
+                vertical_spacing=0.15
+            )
+            
+            # Phase portrait with color gradient
             fig.add_trace(go.Scatter(
                 x=x, y=y, 
                 mode="lines", 
-                line=dict(color="blue", width=2),
-                name="Trajectory"
-            ))
-            
-            # Add starting point
-            fig.add_trace(go.Scatter(
-                x=[x[0]], y=[y[0]], 
-                mode="markers", 
-                marker=dict(size=10, color="green"),
-                name="Start"
-            ))
-            
-            # Add ending point
-            fig.add_trace(go.Scatter(
-                x=[x[-1]], y=[y[-1]], 
-                mode="markers", 
-                marker=dict(size=10, color="red"),
-                name="End"
-            ))
+                line=dict(color=alpha_t, colorscale='RdBu', width=2,
+                         colorbar=dict(title="α(t)", y=0.85, len=0.65)),
+                name="Trajectory",
+                showlegend=False
+            ), row=1, col=1)
             
             # Add fixed point
             fig.add_trace(go.Scatter(
                 x=[0], y=[0], 
                 mode="markers", 
-                marker=dict(size=12, color="black", symbol="x"),
-                name="Fixed Point"
-            ))
-            
-            fig.update_layout(
-                xaxis_title="x", 
-                yaxis_title="y", 
-                height=600,
-                showlegend=True,
-                xaxis=dict(scaleanchor="y", scaleratio=1)  # Equal aspect ratio
-            )
-            
-        elif view == "Time Evolution (x vs t)":
-            fig.add_trace(go.Scatter(
-                x=t, y=x, 
-                mode="lines", 
-                line=dict(color="red", width=2),
-                name="x(t)"
-            ))
-            
-            # Add y(t) as well for comparison
-            fig.add_trace(go.Scatter(
-                x=t, y=y, 
-                mode="lines", 
-                line=dict(color="blue", width=2, dash="dash"),
-                name="y(t)"
-            ))
-            
-            # Add zero line
-            fig.add_hline(y=0, line_dash="dot", line_color="gray", opacity=0.5)
-            
-            fig.update_layout(
-                xaxis_title="Time t", 
-                yaxis_title="x(t), y(t)", 
-                height=600,
+                marker=dict(size=10, color="black", symbol="x"),
+                name="Origin",
                 showlegend=True
+            ), row=1, col=1)
+            
+            # Add theoretical limit cycle if no slow passage
+            if not data['slow_passage'] and data['alpha'] > 0:
+                theta = np.linspace(0, 2*np.pi, 100)
+                r_theory = np.sqrt(data['alpha'])
+                fig.add_trace(go.Scatter(
+                    x=r_theory * np.cos(theta),
+                    y=r_theory * np.sin(theta),
+                    mode="lines",
+                    line=dict(dash="dash", color="gray"),
+                    name=f"Limit cycle (r=√{data['alpha']:.2f})",
+                    showlegend=True
+                ), row=1, col=1)
+            
+            # Parameter evolution
+            fig.add_trace(go.Scatter(
+                x=t, y=alpha_t,
+                mode="lines",
+                line=dict(color="purple", width=2),
+                name="α(t)",
+                showlegend=False
+            ), row=2, col=1)
+            
+            # Mark key points
+            if data['slow_passage']:
+                # Bifurcation point
+                fig.add_hline(y=0, line_dash="dash", line_color="red", 
+                             annotation_text="Bifurcation (α=0)", row=2, col=1)
+                
+                # Theoretical prediction
+                if data['alpha'] < 0:
+                    fig.add_hline(y=abs(data['alpha']), line_dash="dot", line_color="blue",
+                                 annotation_text=f"Predicted onset (α={abs(data['alpha']):.3f})", 
+                                 row=2, col=1)
+                
+                # Actual onset
+                if data['osc_start_alpha'] is not None:
+                    fig.add_hline(y=data['osc_start_alpha'], line_color="green",
+                                 annotation_text=f"Actual onset (α={data['osc_start_alpha']:.3f})", 
+                                 row=2, col=1)
+            
+            fig.update_xaxes(title_text="x", row=1, col=1)
+            fig.update_yaxes(title_text="y", row=1, col=1)
+            fig.update_xaxes(title_text="Time t", row=2, col=1)
+            fig.update_yaxes(title_text="α(t)", row=2, col=1)
+            
+            fig.update_layout(height=700, showlegend=True,
+                            xaxis=dict(scaleanchor="y", scaleratio=1))
+            
+        elif view == "Time Series with Delay Analysis":
+            fig = make_subplots(
+                rows=3, cols=1,
+                subplot_titles=("State Variables x(t), y(t)", 
+                              "Radius ρ(t) = √(x²+y²)", 
+                              "Parameter α(t)"),
+                row_heights=[0.4, 0.3, 0.3],
+                vertical_spacing=0.1
             )
             
-        else:  # Radius
+            # State variables
+            fig.add_trace(go.Scatter(x=t, y=x, mode="lines", 
+                                   line=dict(color="red", width=2), name="x(t)"), 
+                        row=1, col=1)
+            fig.add_trace(go.Scatter(x=t, y=y, mode="lines", 
+                                   line=dict(color="blue", width=2, dash="dash"), name="y(t)"), 
+                        row=1, col=1)
+            
+            # Radius
+            fig.add_trace(go.Scatter(x=t, y=rho, mode="lines", 
+                                   line=dict(color="green", width=2), name="ρ(t)"), 
+                        row=2, col=1)
+            fig.add_hline(y=0.05, line_dash="dot", line_color="orange", 
+                         annotation_text="Detection threshold", row=2, col=1)
+            
+            # Parameter
+            fig.add_trace(go.Scatter(x=t, y=alpha_t, mode="lines", 
+                                   line=dict(color="purple", width=2), name="α(t)"), 
+                        row=3, col=1)
+            
+            # Mark critical times
+            if data['slow_passage']:
+                # Crossing α = 0
+                if data['zero_crossing_time'] is not None:
+                    for row in [1, 2, 3]:
+                        fig.add_vline(x=data['zero_crossing_time'], 
+                                    line_dash="dash", line_color="red", 
+                                    opacity=0.5, row=row, col=1)
+                        if row == 1:
+                            fig.add_annotation(x=data['zero_crossing_time'], y=0,
+                                             text="α=0", showarrow=True, row=1, col=1)
+                
+                # Oscillation onset
+                if data['osc_start_time'] is not None:
+                    for row in [1, 2, 3]:
+                        fig.add_vline(x=data['osc_start_time'], 
+                                    line_dash="solid", line_color="green", 
+                                    opacity=0.5, row=row, col=1)
+                        if row == 1:
+                            fig.add_annotation(x=data['osc_start_time'], y=0,
+                                             text="Onset", showarrow=True, row=1, col=1)
+            
+            fig.update_xaxes(title_text="Time t", row=3, col=1)
+            fig.update_yaxes(title_text="x, y", row=1, col=1)
+            fig.update_yaxes(title_text="ρ", row=2, col=1)
+            fig.update_yaxes(title_text="α", row=3, col=1)
+            
+            fig.update_layout(height=800, showlegend=True)
+            
+        elif view == "Radius Evolution & Theoretical Comparison":
+            fig = go.Figure()
+            
+            # Radius evolution
             fig.add_trace(go.Scatter(
-                x=t, y=rho, 
+                x=alpha_t, y=rho, 
                 mode="lines", 
                 line=dict(color="green", width=2),
-                name="ρ(t)"
+                name="ρ(α) - Numerical"
             ))
             
-            # Add theoretical radius for static case
-            if not data['slow_passage'] and data['alpha'] > 0:
-                theoretical_radius = np.sqrt(data['alpha'])
-                fig.add_hline(
-                    y=theoretical_radius, 
-                    line_dash="dash", 
-                    line_color="red", 
-                    opacity=0.7,
-                    annotation_text=f"√α = {theoretical_radius:.3f}"
-                )
+            # Theoretical radius for static case
+            if not data['slow_passage']:
+                alpha_range = np.linspace(0, max(alpha_t), 100)
+                rho_theory = np.sqrt(np.maximum(0, alpha_range))
+                fig.add_trace(go.Scatter(
+                    x=alpha_range, y=rho_theory,
+                    mode="lines",
+                    line=dict(dash="dash", color="red", width=2),
+                    name="ρ = √α (Static theory)"
+                ))
             
-            # Add zero line
-            fig.add_hline(y=0, line_dash="dot", line_color="gray", opacity=0.5)
+            # Mark bifurcation
+            fig.add_vline(x=0, line_dash="dash", line_color="red", 
+                         annotation_text="Bifurcation")
+            
+            # Mark predicted onset
+            if data['slow_passage'] and data['alpha'] < 0:
+                fig.add_vline(x=abs(data['alpha']), line_dash="dot", line_color="blue",
+                             annotation_text=f"WKB prediction: α={abs(data['alpha']):.3f}")
+            
+            # Add threshold
+            fig.add_hline(y=0.05, line_dash="dot", line_color="orange", 
+                         annotation_text="Detection threshold")
             
             fig.update_layout(
-                xaxis_title="Time t", 
-                yaxis_title="ρ(t) = √(x²+y²)", 
-                height=600,
-                showlegend=True
+                xaxis_title="α", 
+                yaxis_title="ρ = √(x²+y²)", 
+                height=500,
+                title="Radius Evolution in Parameter Space"
             )
-
-        # Add title with current parameters
-        title_text = f"Hopf Bifurcation: α = {data['alpha']:.3f}"
-        if data['slow_passage']:
-            title_text += f" (Slow passage: ε = {data['eps']:.3f})"
-        fig.update_layout(title=title_text)
-        
+            
+        else:  # 3D Trajectory
+            fig = go.Figure()
+            
+            # 3D trajectory
+            fig.add_trace(go.Scatter3d(
+                x=x, y=y, z=alpha_t,
+                mode="lines",
+                line=dict(color=t, colorscale='Viridis', width=3,
+                         colorbar=dict(title="Time")),
+                name="Trajectory"
+            ))
+            
+            # Add critical manifold C_0 (the α-axis)
+            alpha_range = np.linspace(min(alpha_t), max(alpha_t), 50)
+            fig.add_trace(go.Scatter3d(
+                x=np.zeros_like(alpha_range),
+                y=np.zeros_like(alpha_range),
+                z=alpha_range,
+                mode="lines",
+                line=dict(color="black", width=4, dash="dash"),
+                name="Critical Manifold C₀"
+            ))
+            
+            # Mark bifurcation plane
+            xx, yy = np.meshgrid(np.linspace(-2, 2, 10), np.linspace(-2, 2, 10))
+            zz = np.zeros_like(xx)
+            fig.add_trace(go.Surface(
+                x=xx, y=yy, z=zz,
+                opacity=0.2,
+                colorscale=[[0, 'red'], [1, 'red']],
+                showscale=False,
+                name="Bifurcation (α=0)"
+            ))
+            
+            fig.update_layout(
+                scene=dict(
+                    xaxis_title="x",
+                    yaxis_title="y",
+                    zaxis_title="α",
+                    camera=dict(eye=dict(x=1.5, y=1.5, z=1))
+                ),
+                height=600,
+                title="3D Trajectory in Extended Phase Space"
+            )
+            
         st.plotly_chart(fig, use_container_width=True)
         
-        # Add analysis metrics
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Final radius", f"{rho[-1]:.4f}")
-        with col2:
-            if data['alpha'] > 0:
-                st.metric("Expected radius", f"{np.sqrt(data['alpha']):.4f}")
-            else:
-                st.metric("Expected radius", "0 (stable)")
-        with col3:
-            max_rho = np.max(rho)
-            st.metric("Max radius", f"{max_rho:.4f}")
+        # Analysis metrics
+        if data['slow_passage']:
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Initial α₀", f"{data['alpha']:.4f}")
+            with col2:
+                if data['zero_crossing_time'] is not None:
+                    st.metric("Time to α=0", f"{data['zero_crossing_time']:.2f}")
+            with col3:
+                if data['osc_start_time'] is not None and data['zero_crossing_time'] is not None:
+                    delay = data['osc_start_time'] - data['zero_crossing_time']
+                    st.metric("Delay time", f"{delay:.2f}")
+            with col4:
+                if data['osc_start_alpha'] is not None:
+                    error = abs(data['osc_start_alpha'] - abs(data['alpha']))
+                    st.metric("Prediction error", f"{error:.4f}")
+    
+    # ----- Visualization for FitzHugh-Nagumo -----
+    elif model == "FitzHugh-Nagumo" and 'fn_data' in st.session_state:
+        data = st.session_state.fn_data
         
-    else:
-        st.info("👆 Adjust parameters and click **Run Simulation** to explore Hopf bifurcations")
+        # Create visualization
+        fig = make_subplots(
+            rows=2, cols=1,
+            subplot_titles=("Voltage v(t)", "Current I(t)"),
+            row_heights=[0.7, 0.3],
+            vertical_spacing=0.15
+        )
+        
+        # Voltage
+        fig.add_trace(go.Scatter(
+            x=data['t'], y=data['v'],
+            mode="lines",
+            line=dict(color="red", width=1),
+            name="v(t)"
+        ), row=1, col=1)
+        
+        # Current
+        fig.add_trace(go.Scatter(
+            x=data['t'], y=data['I_t'],
+            mode="lines",
+            line=dict(color="purple", width=2),
+            name="I(t)"
+        ), row=2, col=1)
+        
+        # Mark bifurcations
+        fig.add_hline(y=data['I_minus'], line_dash="dash", line_color="blue",
+                     annotation_text=f"Lower Hopf (I={data['I_minus']:.3f})", row=2, col=1)
+        fig.add_hline(y=data['I_plus'], line_dash="dash", line_color="red",
+                     annotation_text=f"Upper Hopf (I={data['I_plus']:.3f})", row=2, col=1)
+        
+        fig.update_xaxes(title_text="Time t", row=2, col=1)
+        fig.update_yaxes(title_text="v", row=1, col=1)
+        fig.update_yaxes(title_text="I", row=2, col=1)
+        
+        fig.update_layout(height=700, showlegend=True)
+        st.plotly_chart(fig, use_container_width=True)
 
-    # ----- Theory section -----
-    with st.expander("📚 Learn More — Hopf Bifurcations & Slow Passage"):
+    # ----- Enhanced Theory Section -----
+    with st.expander("📚 Theory: Hopf Bifurcations & Slow Passages", expanded=False):
         st.markdown(r"""
-        ### 🌱 Hopf Bifurcation
+        ### 🌀 Hopf Bifurcation Basics
+        
         A **Hopf bifurcation** occurs when a fixed point loses stability as a parameter α crosses a
-        critical value. In the **supercritical case**, a stable periodic orbit (limit cycle) emerges,
-        giving rise to sustained oscillations.
-
-        In the canonical normal form:
+        critical value, giving rise to periodic oscillations. In the canonical normal form:
         $$
         \dot{x} = \alpha x - y - x(x^2+y^2), \quad 
-        \dot{y} = x + \alpha y - y(x^2+y^2),
+        \dot{y} = x + \alpha y - y(x^2+y^2)
         $$
-        the equilibrium $(x,y)=(0,0)$ is stable for $\alpha<0$, loses stability at $\alpha=0$,
-        and gives rise to a stable limit cycle of radius $\sqrt{\alpha}$ for $\alpha>0$.
+        
+        - For $\alpha < 0$: Stable equilibrium at origin
+        - For $\alpha = 0$: Bifurcation point (eigenvalues $\lambda = \pm i$)
+        - For $\alpha > 0$: Unstable equilibrium + stable limit cycle of radius $\sqrt{\alpha}$
+        
+        ### 🐌 Slow Passage Phenomenon
+        
+        When the parameter evolves slowly with time: $\dot{\alpha} = \varepsilon$ (where $0 < \varepsilon \ll 1$),
+        the system exhibits a **delay** in the onset of oscillations:
+        
+        #### Key Results from My Thesis:
+        
+        1. **Fast-Slow System Structure**:
+           - Fast variables: $(x, y)$ - the state variables
+           - Slow variable: $\alpha$ - the bifurcation parameter
+           - Critical manifold: $C_0 = \{(x,y,\alpha) : x = y = 0\}$ (the α-axis)
+        
+        2. **Delay Quantification** (WKB Method):
+           - Starting from $\alpha_0 < 0$, oscillations begin at $\alpha_j \approx |\alpha_0|$
+           - This gives a delay time of $\tau_K = \frac{2|\alpha_0|}{\varepsilon}$
+           - The trajectory stays exponentially close to $C_0$ until $\alpha$ reaches $\alpha_j$
+        
+        3. **Entry-Exit Function**:
+           The complex phase function
+           $$\Psi(\tau) = \int_{\tau_*}^{\tau} \lambda_1(\alpha^0(s)) \, ds$$
+           determines the asymptotic moments of fall and jump through its level curves.
+        
+        ### 🧮 Mathematical Framework
+        
+        #### Fast-Slow Decomposition:
+        In slow time $\tau = \varepsilon t$:
+        $$
+        \begin{align}
+        \varepsilon x' &= \alpha x - y - x(x^2+y^2) \\
+        \varepsilon y' &= x + \alpha y - y(x^2+y^2) \\
+        \alpha' &= 1
+        \end{align}
+        $$
+        
+        #### Fenichel's Theorem:
+        For $\varepsilon > 0$ sufficiently small:
+        - The critical manifold $C_0$ persists as a slow manifold $C_\varepsilon$
+        - $C_\varepsilon$ is $O(\varepsilon)$-close to $C_0$
+        - Solutions approach $C_\varepsilon$ exponentially fast for $\alpha < 0$
+        
+        #### WKB Asymptotic Expansion:
+        The condition for oscillation onset:
+        $$
+        0 = \int_{\alpha_0}^{\alpha_j} \text{Re}(\lambda(\alpha)) \, d\alpha
+        $$
+        For the normal form: $\lambda = \alpha \pm i$, giving $\alpha_j = |\alpha_0|$
+        
+        ### 📊 Physical Interpretation
+        
+        The delay occurs because:
+        1. The solution approaches the attracting part of $C_0$ exponentially fast
+        2. When $\alpha$ crosses 0, the manifold becomes repelling
+        3. But the solution remains "trapped" near $C_0$ due to the slow dynamics
+        4. Only when $\alpha$ reaches $\alpha_j$ does the repulsion overcome the trapping
+        
+        ### 🔬 Applications
+        
+        This delay phenomenon is crucial in:
+        - **Neuroscience**: Bursting patterns in neurons (FitzHugh-Nagumo model)
+        - **Climate Science**: Glacial-interglacial transitions
+        - **Engineering**: Delayed instabilities in control systems
+        
+        ### 📖 References
+        
+        Key references from my thesis:
+        - Neishtadt (1987, 1988): Analytical techniques using complex time
+        - Baer et al. (1989): Asymptotic methods and neural applications
+        - Hayes et al. (2016): Geometric singular perturbation theory
+        - Kuehn (2015): Comprehensive treatment of multiple time scales
+        """)
 
-        ### 🐌 Slow Passage
-        In my undergraduate thesis *Atravesando lentamente una bifurcación de Hopf*, I studied what happens
-        when the parameter $\alpha$ evolves slowly in time:
-        $$
-        \alpha(t) = \alpha_0 + \varepsilon t, \qquad \varepsilon \ll 1.
-        $$
-        In this setting, oscillations appear **delayed** relative to the static bifurcation point:
-        the system remains near the unstable equilibrium for some time after $\alpha=0$, before
-        oscillations finally grow. This is known as the **delay of bifurcation** or
-        **dynamic Hopf bifurcation**.
+    # ----- Interactive Delay Calculator -----
+    with st.expander("🧮 Delay Calculator", expanded=False):
+        st.write("Calculate the theoretical delay for a slow passage through a Hopf bifurcation")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            alpha_0_calc = st.number_input("Initial α₀ (must be < 0)", 
+                                          value=-1.0, max_value=-0.01, step=0.1)
+            eps_calc = st.number_input("Slow passage rate ε", 
+                                      value=0.01, min_value=0.0001, max_value=0.1, 
+                                      step=0.001, format="%.4f")
+        
+        with col2:
+            st.write("**Predictions:**")
+            alpha_j = abs(alpha_0_calc)
+            tau_delay = 2 * abs(alpha_0_calc) / eps_calc
+            t_to_zero = abs(alpha_0_calc) / eps_calc
+            t_delay = alpha_j / eps_calc
+            
+            st.metric("Oscillations start at α_j", f"{alpha_j:.3f}")
+            st.metric("Time to reach α = 0", f"{t_to_zero:.1f}")
+            st.metric("Additional delay time", f"{t_delay:.1f}")
+            st.metric("Total time to oscillations", f"{tau_delay:.1f}")
+        
+        st.latex(r"\text{Delay} = \frac{2|\alpha_0|}{\varepsilon} = \frac{" + 
+                f"{2*abs(alpha_0_calc):.2f}" + r"}{" + f"{eps_calc:.4f}" + 
+                r"} = " + f"{tau_delay:.1f}")
 
-        ### 🔍 What to Explore
-        - Vary α and watch the fixed point transition into a limit cycle.
-        - Enable *slow passage* and observe how oscillations start later than expected.
-        - Compare time series $x(t)$ with the radius $\rho(t)$ to clearly see the onset of periodicity.
+    # ----- Additional Features -----
+    st.divider()
+    
+    # Download data option
+    if 'hopf_data' in st.session_state and model == "Normal Form":
+        data = st.session_state.hopf_data
+        df = pd.DataFrame({
+            't': data['t'],
+            'x': data['x'],
+            'y': data['y'],
+            'rho': data['rho'],
+            'alpha': data['alpha_t']
+        })
+        
+        csv = df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download simulation data",
+            data=csv,
+            file_name="hopf_simulation.csv",
+            mime="text/csv"
+        )
+
+    # Tips and insights
+    with st.expander("💡 Tips & Insights", expanded=False):
+        st.markdown("""
+        **Things to try:**
+        
+        1. **Observe the delay**: With slow passage enabled, notice how oscillations start 
+           well after α crosses 0. The delay increases as you start from more negative α₀.
+        
+        2. **Compare with theory**: The WKB prediction α_j = |α₀| is remarkably accurate
+           for the normal form. Check how well it matches the numerical results.
+        
+        3. **Effect of ε**: Smaller ε means slower parameter variation and longer delays.
+           But the onset value α_j remains the same!
+        
+        4. **Phase portrait colors**: In the phase portrait view, the color represents
+           the current value of α. Watch how the trajectory transitions from spiraling
+           inward (blue, α < 0) to spiraling outward (red, α > 0).
+        
+        5. **FitzHugh-Nagumo**: This neuronal model shows bursting behavior when the
+           current slowly varies through the Hopf bifurcation regions.
+        
+        **Mathematical beauty**: The delay phenomenon shows how multiple timescales
+        interact in nonlinear systems, creating rich dynamics that can't be predicted
+        from static bifurcation analysis alone.
         """)
