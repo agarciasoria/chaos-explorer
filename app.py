@@ -5765,9 +5765,9 @@ with tabs[4]:
         # Layout choice
         view = st.radio("Select view",
                         ["Phase Portrait & Parameter Evolution", 
-                         "Time Series with Delay Analysis",
-                         "Radius Evolution & Theoretical Comparison",
-                         "3D Trajectory in Extended Phase Space"],
+                        "Time Series with Delay Analysis",
+                        "Radius Evolution & Theoretical Comparison",
+                        "3D Trajectory in Extended Phase Space"],
                         horizontal=True)
 
         # Retrieve data
@@ -5788,13 +5788,28 @@ with tabs[4]:
             )
             
             # Phase portrait with color gradient
+            # Use scatter instead of line with marker mode for color gradient
             fig.add_trace(go.Scatter(
                 x=x, y=y, 
-                mode="lines", 
-                line=dict(color=alpha_t, colorscale='RdBu', width=2,
-                         colorbar=dict(title="α(t)", y=0.85, len=0.65)),
+                mode="markers",  # Changed from "lines" to "markers"
+                marker=dict(
+                    color=alpha_t,
+                    colorscale='RdBu',
+                    size=2,
+                    colorbar=dict(title="α(t)", y=0.85, len=0.65)
+                ),
                 name="Trajectory",
                 showlegend=False
+            ), row=1, col=1)
+            
+            # Alternatively, if you want a line, add it separately without color gradient
+            fig.add_trace(go.Scatter(
+                x=x, y=y, 
+                mode="lines",
+                line=dict(color="blue", width=1),
+                name="Path",
+                showlegend=False,
+                opacity=0.3
             ), row=1, col=1)
             
             # Add fixed point
@@ -5832,27 +5847,29 @@ with tabs[4]:
             if data['slow_passage']:
                 # Bifurcation point
                 fig.add_hline(y=0, line_dash="dash", line_color="red", 
-                             annotation_text="Bifurcation (α=0)", row=2, col=1)
+                            annotation_text="Bifurcation (α=0)", row=2, col=1)
                 
                 # Theoretical prediction
                 if data['alpha'] < 0:
                     fig.add_hline(y=abs(data['alpha']), line_dash="dot", line_color="blue",
-                                 annotation_text=f"Predicted onset (α={abs(data['alpha']):.3f})", 
-                                 row=2, col=1)
+                                annotation_text=f"Predicted onset (α={abs(data['alpha']):.3f})", 
+                                row=2, col=1)
                 
                 # Actual onset
                 if data['osc_start_alpha'] is not None:
                     fig.add_hline(y=data['osc_start_alpha'], line_color="green",
-                                 annotation_text=f"Actual onset (α={data['osc_start_alpha']:.3f})", 
-                                 row=2, col=1)
+                                annotation_text=f"Actual onset (α={data['osc_start_alpha']:.3f})", 
+                                row=2, col=1)
             
             fig.update_xaxes(title_text="x", row=1, col=1)
             fig.update_yaxes(title_text="y", row=1, col=1)
             fig.update_xaxes(title_text="Time t", row=2, col=1)
             fig.update_yaxes(title_text="α(t)", row=2, col=1)
             
-            fig.update_layout(height=700, showlegend=True,
-                            xaxis=dict(scaleanchor="y", scaleratio=1))
+            # Equal aspect ratio for phase portrait
+            fig.update_xaxes(scaleanchor="y", scaleratio=1, row=1, col=1)
+            
+            fig.update_layout(height=700, showlegend=True)
             
         elif view == "Time Series with Delay Analysis":
             fig = make_subplots(
