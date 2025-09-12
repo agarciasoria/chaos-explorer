@@ -168,16 +168,19 @@ with st.expander("📖 About This Project", expanded=False):
     ### About the Hopf Explorer
     
     The Hopf Explorer section is particularly special, as it implements research from my 
-    undergraduate thesis in Mathematics at Universidad de Cantabria (2023), supervised by 
+    undergraduate thesis in Mathematics at Universidad de Oviedo (2023), supervised by 
     Prof. Santiago Ibáñez Mesa. This work studied:
     
     - **Slow passage effects** through Hopf bifurcations
     - **Delay phenomena** in dynamical systems
-    - **Applications** to neuronal dynamics and climate systems
     - **WKB asymptotic methods** for quantifying delays
     
-    The mathematical rigor behind this section makes it a unique educational tool for 
-    understanding advanced concepts in bifurcation theory.
+    This section showcases the beauty of mathematical rigor and the wonderful 
+    interplay between abstract theory and real-world phenomena. What begins as 
+    purely mathematical analysis — involving complex time, asymptotic expansions, 
+    and geometric singular perturbation theory — could reveal profound insights into 
+    how neurons fire, how climate systems transition, and why nature often 
+    "hesitates" at critical points.
     """)
 
 st.markdown("---")
