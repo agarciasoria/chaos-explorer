@@ -101,7 +101,7 @@ st.markdown("---")
 
 # Create columns for a nice layout
 col1, col2 = st.columns([2, 1])
-
+#- 📈 **Lyapunov Exponents**: Quantifying chaos mathematically
 with col1:
     st.markdown("""
     ### Welcome to an Interactive Journey through Chaos Theory!
@@ -114,7 +114,6 @@ with col1:
     - 🏋️ **Double Pendulum**: Experience sensitive dependence on initial conditions
     - 🌀 **Lorenz Attractor**: The butterfly effect in action
     - 🌿 **Bifurcation Diagrams**: How systems transition from order to chaos
-    #- 📈 **Lyapunov Exponents**: Quantifying chaos mathematically
     - ✨ **Hopf Explorer**: Advanced dynamics of oscillation birth through bifurcations
     
     Each visualization is designed to be **interactive and educational**, allowing you to 
@@ -229,7 +228,7 @@ tabs = st.tabs([
     "🏋️ Double Pendulum",
     "🌀 Lorenz Attractor",
     "🌿 Bifurcation Diagrams",
-    "📈 Lyapunov Exponents",
+    #"📈 Lyapunov Exponents",
     "✨ Hopf Explorer"
 ])
 
