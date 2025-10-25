@@ -2570,7 +2570,7 @@ with tabs[2]:
             """
         )
 
-with tabs[3]:  # Lyapunov Exponents tab
+# with tabs[3]:  # Lyapunov Exponents tab
     st.header("Lyapunov Exponents Analysis")
     st.write("Explore how sensitive dynamical systems are to initial conditions through Lyapunov exponents.")
     
@@ -5165,7 +5165,7 @@ with tabs[3]:  # Lyapunov Exponents tab
 # ============================================
 # TAB 5: HOPF EXPLORER
 # ============================================
-with tabs[3]:
+with tabs[4]:
     st.header("Hopf Explorer: Slow Passages & Delayed Oscillations")
     st.write("Explore the birth of oscillations through Hopf bifurcations and the delay phenomenon — "
              "based on my undergraduate thesis 'Atravesando lentamente una bifurcación de Hopf'.")
