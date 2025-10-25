@@ -114,7 +114,7 @@ with col1:
     - 🏋️ **Double Pendulum**: Experience sensitive dependence on initial conditions
     - 🌀 **Lorenz Attractor**: The butterfly effect in action
     - 🌿 **Bifurcation Diagrams**: How systems transition from order to chaos
-    """ - 📈 **Lyapunov Exponents**: Quantifying chaos mathematically """
+    #- 📈 **Lyapunov Exponents**: Quantifying chaos mathematically
     - ✨ **Hopf Explorer**: Advanced dynamics of oscillation birth through bifurcations
     
     Each visualization is designed to be **interactive and educational**, allowing you to 
