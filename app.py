@@ -5164,7 +5164,7 @@ with tabs[2]:
 # ============================================
 # TAB 5: HOPF EXPLORER
 # ============================================
-with tabs[4]:
+with tabs[3]:
     st.header("Hopf Explorer: Slow Passages & Delayed Oscillations")
     st.write("Explore the birth of oscillations through Hopf bifurcations and the delay phenomenon — "
              "based on my undergraduate thesis 'Atravesando lentamente una bifurcación de Hopf'.")
