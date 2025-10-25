@@ -2515,14 +2515,6 @@ with tabs[2]:
             
             The Poincaré section cuts through the continuous flow, revealing the discrete map hidden within.
             
-            **Van der Pol Oscillator: Relaxation to Chaos**
-            
-            As μ increases:
-            - μ ≈ 0: Nearly harmonic oscillation (circle in phase space)
-            - μ > 0: Limit cycle emerges via Hopf bifurcation
-            - Large μ: Relaxation oscillations (fast-slow dynamics)
-            
-            The amplitude approaches 2 for large μ, independent of initial conditions—a robust limit cycle.
             
             **Hénon Map: Strange Attractor Formation**
             
